@@ -1,16 +1,23 @@
-name: process
-version: 3.0.13
-description: A pluggable, mockable process invocation abstraction for Dart.
-homepage: https://github.com/google/process.dart
+# Copyright 2020 The Flutter Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+name: process_runner
+version: 1.0.0
+description: A process invocation astraction for Dart that manages a multiprocess queue.
+homepage: https://github.com/google/process_runner
 
 dependencies:
-  file: '^5.0.0'
+  file: ^5.0.0
   meta: ^1.1.2
   path: ^1.5.1
-  platform: '>=1.0.1'
+  platform: ^2.2.0
+  process: ^3.0.13
+  async: ^2.4.2
 
 dev_dependencies:
   test: ^1.0.0
+  mockito: ^4.1.1
 
 environment:
-  sdk: '>=2.8.0 <3.0.0'
+  sdk: '>=2.3.0 <3.0.0'

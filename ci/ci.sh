@@ -5,17 +5,20 @@
 
 # Make sure dartfmt is run on everything
 echo "Checking dartfmt..."
-needs_dartfmt="$(dartfmt -n lib test dev)"
+dartfmt_dirs=(lib test ci example)
+needs_dartfmt="$(dartfmt -n --line-length=100 ${dartfmt_dirs[@]})"
 if [[ -n "$needs_dartfmt" ]]; then
   echo "FAILED"
   echo "$needs_dartfmt"
+  echo ""
+  echo "Fix formatting with: ci/fix_format.sh"
   exit 1
 fi
 echo "PASSED"
 
 # Make sure we pass the analyzer
 echo "Checking dartanalyzer..."
-fails_analyzer="$(find lib test dev -name "*.dart" | xargs dartanalyzer --options .analysis_options)"
+fails_analyzer="$(find lib test ci -name "*.dart" | xargs dartanalyzer --options analysis_options.yaml)"
 if [[ "$fails_analyzer" == *"[error]"* ]]; then
   echo "FAILED"
   echo "$fails_analyzer"
@@ -27,4 +30,4 @@ echo "PASSED"
 set -e
 
 # Run the tests.
-pub run test
+pub run --enable-experiment=non-nullable test

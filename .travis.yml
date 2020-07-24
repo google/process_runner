@@ -5,9 +5,9 @@ dart:
 install:
   - gem install coveralls-lcov
 before_script:
-  - ./dev/setup.sh
+  - ./ci/setup.sh
 script:
-  - ./dev/travis.sh
+  - ./ci/ci.sh
 after_success:
   - (coveralls-lcov coverage/lcov.info)
 cache:
