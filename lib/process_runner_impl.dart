@@ -3,9 +3,9 @@
 // found in the LICENSE file.
 
 import 'dart:async' show Completer;
-import 'dart:convert' show utf8;
+import 'dart:convert' show Encoding;
 import 'dart:io'
-    show Process, ProcessResult, ProcessException, Directory, stderr, stdout
+    show Process, ProcessResult, ProcessException, Directory, stderr, stdout, SystemEncoding
     hide Platform;
 
 import 'package:platform/platform.dart' show Platform, LocalPlatform;
@@ -35,28 +35,92 @@ class ProcessRunnerException implements Exception {
   }
 }
 
+/// This is the result of running a comand using [ProcessRunner] or
+/// [ProcessPool].  It includes the entire stderr, stdout, and interleaved
+/// output from the command after it has completed.
+///
+/// The [stdoutRaw], [stderrRaw], and [outputRaw] members contain the encoded
+/// output from the command as a [List<int>].
+///
+/// The [stdout], [stderr], and [output] accessors will decode the [stdoutRaw],
+/// [stderrRaw], and [outputRaw] data automatically, using a [SystemEncoding]
+/// decoder.
 class ProcessRunnerResult {
-  const ProcessRunnerResult(this.exitCode, this.stdout, this.stderr, this.output);
+  /// Creates a new [ProcessRunnerResult], usually created by a [ProcessRunner].
+  ///
+  /// All of the arguments must not be null.
+  ProcessRunnerResult(
+    this.exitCode,
+    this.stdoutRaw,
+    this.stderrRaw,
+    this.outputRaw, {
+    this.decoder = const SystemEncoding(),
+  });
+
+  /// Contains the exit code from the completed process.
   final int exitCode;
-  final List<int> stdout;
-  final List<int> stderr;
-  final List<int> output;
+
+  /// Contains the raw, encoded, stdout output from the completed process.
+  final List<int> stdoutRaw;
+
+  /// Contains the raw, encoded, stderr output from the completed process.
+  final List<int> stderrRaw;
+
+  /// Contains the raw, encoded, interleaved stdout and stderr output from the
+  /// process.
+  ///
+  /// Information appears in the order supplied by the process.
+  final List<int> outputRaw;
+
+  /// The encoder to use in [stdout], [stderr], and [output] accessors to decode
+  /// the raw data.
+  final Encoding decoder;
+
+  /// Returns a lazily-decoded version of the data in [stdoutRaw], decoded using
+  /// [decoder].
+  String get stdout {
+    _stdout ??= decoder.decode(stdoutRaw);
+    return _stdout;
+  }
+
+  String _stdout;
+
+  /// Returns a lazily-decoded version of the data in [stderrRaw], decoded using
+  /// [decoder].
+  String get stderr {
+    _stderr ??= decoder.decode(stderrRaw);
+    return _stderr;
+  }
+
+  String _stderr;
+
+  /// Returns a lazily-decoded version of the data in [outputRaw], decoded using
+  /// [decoder].
+  ///
+  /// Information appears in the order supplied by the process.
+  String get output {
+    _output ??= decoder.decode(outputRaw);
+    return _output;
+  }
+
+  String _output;
 }
 
 /// A helper class for classes that want to run a process, optionally have the
-/// stderr and stdout reported as the process runs, and capture the stdout
-/// properly without dropping any.
+/// stderr and stdout printed to stdout/stderr as the process runs, and capture
+/// the stdout, stderr, and interleaved output properly without dropping any.
 class ProcessRunner {
   ProcessRunner({
     Directory defaultWorkingDirectory,
     this.processManager = const LocalProcessManager(),
     Map<String, String> environment,
     this.includeParentEnvironment = true,
+    this.decoder = const SystemEncoding(),
   })  : defaultWorkingDirectory = defaultWorkingDirectory ?? Directory.current,
         environment = environment ?? Map<String, String>.from(defaultPlatform.environment);
 
-  /// Set the [processManager] in order to inject a test instance to perform
-  /// testing.
+  /// Set the [processManager] in order to allow injecting a test instance to
+  /// perform testing.
   final ProcessManager processManager;
 
   /// Sets the default directory used when `workingDirectory` is not specified
@@ -80,6 +144,11 @@ class ProcessRunner {
   ///
   /// If false, uses [environment] as the entire environment to run in.
   final bool includeParentEnvironment;
+
+  /// The decoder to use for decoding result stderr, stdout, and output.
+  ///
+  /// Defaults to an instance of [SystemEncoding].
+  final Encoding decoder;
 
   /// Run the command and arguments in `commandLine` as a sub-process from
   /// `workingDirectory` if set, or the [defaultWorkingDirectory] if not. Uses
@@ -165,9 +234,19 @@ class ProcessRunner {
       throw ProcessRunnerException(
         message,
         result: ProcessResult(
-            0, exitCode, null, 'exited with code $exitCode\n${utf8.decode(combinedOutput)}'),
+          0,
+          exitCode,
+          null,
+          'exited with code $exitCode\n${decoder.decode(combinedOutput)}',
+        ),
       );
     }
-    return ProcessRunnerResult(exitCode, stdoutOutput, stderrOutput, combinedOutput);
+    return ProcessRunnerResult(
+      exitCode,
+      stdoutOutput,
+      stderrOutput,
+      combinedOutput,
+      decoder: decoder,
+    );
   }
 }

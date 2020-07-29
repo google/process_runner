@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -10,50 +9,45 @@ import 'package:process_runner/process_runner.dart';
 
 import 'fake_process_manager.dart';
 
-// TODO(gspencergoog): Implement tests.
 void main() {
   FakeProcessManager fakeProcessManager = FakeProcessManager((String value) {});
   ProcessRunner processRunner = ProcessRunner(processManager: fakeProcessManager);
+  ProcessPool processPool = ProcessPool(processRunner: processRunner);
 
   setUp(() {
     fakeProcessManager = FakeProcessManager((String value) {});
     processRunner = ProcessRunner(processManager: fakeProcessManager);
+    processPool = ProcessPool(processRunner: processRunner, printReport: null);
   });
 
   tearDown(() {});
 
   group('Ouput Capture', () {
-    test('runProcess works', () async {
+    test('startWorkers works', () async {
       final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
         <String>['command', 'arg1', 'arg2']: <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
       };
       fakeProcessManager.fakeResults = calls;
-      await processRunner.runProcess(calls.keys.first);
+      final List<WorkerJob> jobs = <WorkerJob>[
+        WorkerJob(<String>['command', 'arg1', 'arg2'], name: 'job 1'),
+      ];
+      await for (final WorkerJob _ in processPool.startWorkers(jobs)) {}
       fakeProcessManager.verifyCalls(calls.keys);
     });
-    test('runProcess returns correct output', () async {
+    test('runToCompletion works', () async {
       final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
         <String>['command', 'arg1', 'arg2']: <ProcessResult>[
-          ProcessResult(0, 0, 'output1', 'stderr1'),
+          ProcessResult(0, 0, 'output1', ''),
         ],
       };
       fakeProcessManager.fakeResults = calls;
-      final ProcessRunnerResult result = await processRunner.runProcess(calls.keys.first);
+      final List<WorkerJob> jobs = <WorkerJob>[
+        WorkerJob(<String>['command', 'arg1', 'arg2'], name: 'job 1'),
+      ];
+      await processPool.runToCompletion(jobs);
       fakeProcessManager.verifyCalls(calls.keys);
-      expect(utf8.decode(result.stdout), equals('output1'));
-      expect(utf8.decode(result.stderr), equals('stderr1'));
-      expect(utf8.decode(result.output), equals('output1stderr1'));
-    });
-    test('runProcess fails properly', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
-          ProcessResult(0, -1, 'output1', 'stderr1'),
-        ],
-      };
-      fakeProcessManager.fakeResults = calls;
-      expectLater(() => processRunner.runProcess(calls.keys.first), throwsException);
     });
   });
 }

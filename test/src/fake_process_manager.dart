@@ -48,18 +48,37 @@ class FakeProcessManager extends Mock implements ProcessManager {
   /// that the parameters were in the same order.
   void verifyCalls(Iterable<List<String>> calls) {
     int index = 0;
+    expect(invocations.length, equals(calls.length));
     for (final List<String> call in calls) {
       expect(call, orderedEquals(invocations[index].positionalArguments[0] as Iterable<dynamic>));
       index++;
     }
-    expect(invocations.length, equals(calls.length));
   }
 
   ProcessResult _popResult(List<String> command) {
     expect(fakeResults, isNotEmpty);
-    expect(fakeResults, contains(command));
-    expect(fakeResults[command], isNotEmpty);
-    return fakeResults[command]?.removeAt(0);
+    List<ProcessResult> foundResult;
+    List<String> foundCommand;
+    for (final List<String> fakeCommand in fakeResults.keys) {
+      if (fakeCommand.length != command.length) {
+        continue;
+      }
+      bool listsIdentical = true;
+      for (int i = 0; i < fakeCommand.length; ++i) {
+        if (fakeCommand[i] != command[i]) {
+          listsIdentical = false;
+          break;
+        }
+      }
+      if (listsIdentical) {
+        foundResult = fakeResults[fakeCommand];
+        foundCommand = fakeCommand;
+        break;
+      }
+    }
+    expect(foundResult, isNotNull, reason: '$command not found in expected results.');
+    expect(foundResult, isNotEmpty);
+    return fakeResults[foundCommand]?.removeAt(0);
   }
 
   FakeProcess _popProcess(List<String> command) => FakeProcess(_popResult(command), stdinResults);
@@ -82,14 +101,16 @@ class FakeProcessManager extends Mock implements ProcessManager {
 
   void _setupMock() {
     // Not all possible types of invocations are covered here, just the ones
-    // expected to be called.
-    // TODO(gspencer): make this more general so that any call will be captured.
+    // expected to be called by ProcessManager.
+    // TODO(gspencergoog): make this more general so that any call will be captured.
     when(start(
       any,
       // ignore: dead_code
       environment: anyNamed('environment'),
       // ignore: dead_code
       workingDirectory: anyNamed('workingDirectory'),
+      // ignore: dead_code
+      runInShell: anyNamed('runInShell'),
     )).thenAnswer(_nextProcess);
 
     when(start(any)).thenAnswer(_nextProcess);

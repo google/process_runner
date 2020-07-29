@@ -3,7 +3,8 @@
 // found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:io' show Directory, Platform, stdout;
+import 'dart:convert' show Encoding;
+import 'dart:io' show Directory, Platform, stdout, SystemEncoding;
 
 import 'package:async/async.dart' show StreamGroup;
 
@@ -11,37 +12,61 @@ import 'process_runner.dart';
 
 class WorkerJob {
   WorkerJob(
-    this.name,
-    this.args, {
+    this.command, {
+    String name,
     this.workingDirectory,
     this.printOutput = false,
     this.stdin,
-  });
+    this.stdinRaw,
+  }) : name = name ?? command.join(' ');
 
   /// The name of the job.
+  ///
+  /// Defaults to the args joined by a space.
   final String name;
 
-  /// The arguments for the process, including the command name as args[0].
-  final List<String> args;
+  /// The name and arguments for the process, including the command name as
+  /// command[0].
+  final List<String> command;
 
   /// The working directory that the command should be executed in.
   final Directory workingDirectory;
 
   /// If set, the stream to read the stdin for this process from.
-  final Stream<List<int>> stdin;
+  ///
+  /// It will be encoded using the [ProcessPool.encoding] before being sent to
+  /// the process.
+  ///
+  /// If both [stdin] and [stdinRaw] are set, only [stdinRaw] will be used.
+  final Stream<String> stdin;
+
+  /// If set, the stream to read the raw stdin for this process from.
+  ///
+  /// It will be used directly, and not encoded (as [stdin] would be).
+  ///
+  /// If both [stdin] and [stdinRaw] are set, only [stdinRaw] will be used.
+  final Stream<List<int>> stdinRaw;
 
   /// Whether or not this command should print it's stdout when it runs.
   final bool printOutput;
 
   /// Once the job is complete, this contains the result of the job.
+  ///
+  /// The [stderr], [stdout], and [output] accessors will decode their raw
+  /// equivalents using the [ProcessRuner.decoder] that is set on the process
+  /// runner for the pool that ran this job.
+  ///
+  /// If no process runner is supplied to the pool, then the decoder will be the
+  /// same as the [ProcessPool.encoding] that was set on the pool.
   ProcessRunnerResult result;
 
   @override
   String toString() {
-    return args.join(' ');
+    return command.join(' ');
   }
 }
 
+/// The type of the reporting function for [ProcessPool.printReport].
 typedef ProcessPoolProgressReporter = void Function(
   int totalJobs,
   int completed,
@@ -53,8 +78,12 @@ typedef ProcessPoolProgressReporter = void Function(
 /// A pool of worker processes that will keep [numWorkers] busy until all of the
 /// (presumably single-threaded) processes are finished.
 class ProcessPool {
-  ProcessPool({int numWorkers, ProcessRunner processRunner, this.printReport = defaultPrintReport})
-      : processRunner = processRunner ?? ProcessRunner(),
+  ProcessPool({
+    int numWorkers,
+    ProcessRunner processRunner,
+    this.printReport = defaultPrintReport,
+    this.encoding = const SystemEncoding(),
+  })  : processRunner = processRunner ?? ProcessRunner(decoder: encoding),
         numWorkers = numWorkers ?? Platform.numberOfProcessors;
 
   /// A function to be called periodically to update the progress on the pool.
@@ -64,6 +93,12 @@ class ProcessPool {
   /// Defaults to [defaultProgressReport], which prints the progress report to
   /// stdout.
   final ProcessPoolProgressReporter printReport;
+
+  /// The decoder to use for decoding the stdout, stderr, and output of a
+  /// process, and encoding the stdin from the job.
+  ///
+  /// Defaults to an instance of [SystemEncoding].
+  final Encoding encoding;
 
   /// The process runner to use when running the jobs in the pool.
   ///
@@ -108,6 +143,7 @@ class ProcessPool {
         totalJobs, _completedJobs.length, _inProgressJobs, _pendingJobs.length, _failedJobs.length);
   }
 
+  /// The default report printing function, if one is not supplied.
   static void defaultPrintReport(
     int total,
     int completed,
@@ -130,19 +166,15 @@ class ProcessPool {
     try {
       job.result = null;
       job.result = await processRunner.runProcess(
-        job.args,
+        job.command,
         workingDirectory: job.workingDirectory,
         printOutput: job.printOutput,
-        stdin: job.stdin,
+        stdin: job.stdinRaw ?? (job.stdin != null ? encoding.encoder.bind(job.stdin) : null),
       );
       _completedJobs.add(job);
-    } catch (e) {
+    } on ProcessRunnerException catch (e) {
+      print('\nJob $job failed: $e');
       _failedJobs.add(job);
-      if (e is ProcessRunnerException) {
-        print(e.toString());
-      } else {
-        print('\nJob $job failed: $e');
-      }
     } finally {
       _inProgressJobs--;
       _printReportIfNeeded();
@@ -158,6 +190,20 @@ class ProcessPool {
     }
   }
 
+  /// Runs all of the jobs to completion, and returns a list of completed jobs
+  /// when all have been completed.
+  ///
+  /// To listen to jobs as they are completed, use [startWorkers] instead.
+  Future<List<WorkerJob>> runToCompletion(List<WorkerJob> jobs) async {
+    final List<WorkerJob> results = <WorkerJob>[];
+    await startWorkers(jobs).forEach((WorkerJob job) => results.add(job));
+    return results;
+  }
+
+  /// Runs the `jobs` in parallel, with at most [numWorkers] jobs running
+  /// simultaneously.
+  ///
+  /// Returns the the jobs in a [Stream] as they are completed.
   Stream<WorkerJob> startWorkers(List<WorkerJob> jobs) async* {
     assert(_inProgressJobs == 0);
     _failedJobs.clear();

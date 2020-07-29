@@ -129,7 +129,7 @@ Future<void> main(List<String> args) async {
     printReport: printReport ? ProcessPool.defaultPrintReport : null,
   );
   final List<WorkerJob> jobs = splitCommands.map<WorkerJob>((List<String> command) {
-    return WorkerJob(command.join(' '), command, workingDirectory: workingDirectory);
+    return WorkerJob(command, workingDirectory: workingDirectory);
   }).toList();
   await for (final WorkerJob done in pool.startWorkers(jobs)) {
     if (printReport) {

@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -42,9 +41,9 @@ void main() {
       fakeProcessManager.fakeResults = calls;
       final ProcessRunnerResult result = await processRunner.runProcess(calls.keys.first);
       fakeProcessManager.verifyCalls(calls.keys);
-      expect(utf8.decode(result.stdout), equals('output1'));
-      expect(utf8.decode(result.stderr), equals('stderr1'));
-      expect(utf8.decode(result.output), equals('output1stderr1'));
+      expect(result.stdout, equals('output1'));
+      expect(result.stderr, equals('stderr1'));
+      expect(result.output, equals('output1stderr1'));
     });
     test('runProcess fails properly', () async {
       final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
