@@ -1,7 +1,5 @@
 # Process
 
-![Build Status - Cirrus][]
-
 A process runner for Dart that uses the
 [`ProcessManager`](https://github.com/google/process.dart/blob/master/lib/src/interface/process_manager.dart#L21)
 class from [`package:process`](https://pub.dev/packages/process), and manages
@@ -42,5 +40,3 @@ For the [`ProcessPool`](lib/process_pool.dart), also see the [example](example),
     print('\nFinished job ${job.name}');
   }
 ```
-
-[Build Status - Cirrus]: https://api.cirrus-ci.com/github/google/process_runner.svg
