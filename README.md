@@ -1,6 +1,6 @@
 # Process
 
-[![Build Status - Cirrus][]][Build status]
+![Build Status - Cirrus][]
 
 A process runner for Dart that uses the
 [`ProcessManager`](https://github.com/google/process.dart/blob/master/lib/src/interface/process_manager.dart#L21)
