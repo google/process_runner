@@ -1,5 +1,9 @@
 # Change Log for `process_runner`
 
+## 2.0.2
+
+* Updated docs and README.md. Bumping version to get updated docs on pub.dev.
+
 ## 2.0.1
 
 * Modified the package structure to get credit for having an example
