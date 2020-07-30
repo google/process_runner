@@ -2,7 +2,8 @@
 
 ## 2.0.2
 
-* Updated docs and README.md. Bumping version to get updated docs on pub.dev.
+* Updated docs and [README.md](README.md). Bumping version to get updated docs
+  on [pub.dev](https://pub.dev).
 
 ## 2.0.1
 
