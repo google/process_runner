@@ -16,4 +16,5 @@ REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$REPO_DIR"
 
-pub upgrade
+# Run the tests.
+pub run test

@@ -14,6 +14,18 @@ unset CDPATH
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
+function analyze() {
+  # Make sure we pass the analyzer
+  echo "Checking dartanalyzer..."
+  fails_analyzer="$(find lib test ci -name "*.dart" | xargs dartanalyzer --options analysis_options.yaml)"
+  if [[ "$fails_analyzer" == *"[error]"* ]]; then
+    echo "FAILED"
+    echo "$fails_analyzer"
+    exit 1
+  fi
+  echo "PASSED"
+}
+
 cd "$REPO_DIR"
 
-pub upgrade
+analyze
