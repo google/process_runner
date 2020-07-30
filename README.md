@@ -23,14 +23,15 @@ more information on how to use it, but the basic usage for  is:
 ```dart
 import 'package:process_runner/process_runner.dart';
 
-void main() {
-  ProcessRunnerResult result = await processRunner.runProcess(['command', 'arg1', 'arg2']);
-  // Print stdout:
-  print(result.stdout);
-  // Print stderr:
-  print(result.stderr);
+Future<void> main() async {
+  ProcessRunner processRunner = ProcessRunner();
+  ProcessRunnerResult result = await processRunner.runProcess(['ls']);
+
+  print('stdout: ${result.stdout}');
+  print('stderr: ${result.stderr}');
+
   // Print interleaved stdout/stderr:
-  print(result.output);
+  print('combined: ${result.output}');
 }
 ```
 
@@ -38,25 +39,36 @@ For the [`ProcessPool`](lib/process_pool.dart), also see the [example](example),
 but it basically looks like this:
 
 ```dart
+import 'package:process_runner/process_runner.dart';
+
+Future<void> main() async {
   ProcessPool pool = ProcessPool(numWorkers: 2);
   final List<WorkerJob> jobs = <WorkerJob>[
-    WorkerJob('Job 1', ['command1', 'arg1', 'arg2']),
-    WorkerJob('Job 2', ['command2', 'arg1']),
+    WorkerJob(['ls'], name: 'Job 1'),
+    WorkerJob(['df'], name: 'Job 2'),
   ];
   await for (final WorkerJob job in pool.startWorkers(jobs)) {
     print('\nFinished job ${job.name}');
   }
+}
 ```
 
 Or, if you just want the answer when it's done:
 
 ```dart
+import 'package:process_runner/process_runner.dart';
+
+Future<void> main() async {
   ProcessPool pool = ProcessPool(numWorkers: 2);
   final List<WorkerJob> jobs = <WorkerJob>[
-    WorkerJob('Job 1', ['command1', 'arg1', 'arg2']),
-    WorkerJob('Job 2', ['command2', 'arg1']),
+    WorkerJob(['ls'], name: 'Job 1'),
+    WorkerJob(['df'], name: 'Job 2'),
   ];
-  List<WorkerJob> finishedJobs = pool.runToCompletion(jobs);
+  List<WorkerJob> finishedJobs = await pool.runToCompletion(jobs);
+  for (final WorkerJob job in finishedJobs) {
+    print("${job.name}: ${job.result.stdout}");
+  }
+}
 ```
 
 
