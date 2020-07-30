@@ -52,7 +52,7 @@ void main() {
         ],
       };
       fakeProcessManager.fakeResults = calls;
-      expectLater(() => processRunner.runProcess(calls.keys.first), throwsException);
+      await expectLater(() => processRunner.runProcess(calls.keys.first), throwsException);
     });
   });
 }
