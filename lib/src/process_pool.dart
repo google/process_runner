@@ -10,6 +10,10 @@ import 'package:async/async.dart' show StreamGroup;
 
 import 'process_runner.dart';
 
+/// A class that represents a job to be done by a [ProcessPool].
+///
+/// Create a list of these to pass to [ProcessPool.startWorkers] or
+/// [ProcessPool.runToCompletion].
 class WorkerJob {
   WorkerJob(
     this.command, {
@@ -196,7 +200,7 @@ class ProcessPool {
   /// To listen to jobs as they are completed, use [startWorkers] instead.
   Future<List<WorkerJob>> runToCompletion(List<WorkerJob> jobs) async {
     final List<WorkerJob> results = <WorkerJob>[];
-    await startWorkers(jobs).forEach((WorkerJob job) => results.add(job));
+    await startWorkers(jobs).forEach(results.add);
     return results;
   }
 

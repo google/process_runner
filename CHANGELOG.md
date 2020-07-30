@@ -1,5 +1,11 @@
 # Change Log for `process_runner`
 
+## 2.0.1
+
+* Modified the package structure to get credit for having an example
+* Moved sub-libraries into lib/src directory to hide them from dartdoc.
+* Updated example documentation.
+
 ## 2.0.0
 
 * Breaking change to modify the stderr, stdout, and output members of

@@ -2,6 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// This example shows how to send a bunch of jobs to ProcessPool for processing.
+//
+// This example program is actually pretty useful even if you don't use
+// process_runner for your Dart project. It can speed up processing of a bunch
+// of single-threaded CPU-intensive commands by a multple of the number of
+// processor cores you have (modulo being disk/network bound, of course).
+
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -74,55 +81,72 @@ Future<void> main(List<String> args) async {
   parser.addFlag('help', help: 'Print help.');
   parser.addFlag('report', help: 'Print progress on the jobs while running.', defaultsTo: false);
   parser.addOption('workers',
+      abbr: 'w',
       help: 'Specify the number of workers jobs to run simultanously. Defaults '
           'to the number of processors on the machine.');
   parser.addOption('workingDirectory',
-      help: 'Specify the working directory to run on', defaultsTo: '.');
+      abbr: 'd', help: 'Specify the working directory to run on', defaultsTo: '.');
   parser.addMultiOption('cmd',
+      abbr: 'c',
       help: 'Specify a command to add to the commands to be run. Entire '
           'command must be quoted by the shell. Commands specified with this '
           'option run before those specified with --cmdFile');
-  parser.addOption('cmdFile',
+  parser.addOption('file',
+      abbr: 'f',
       help: 'Specify the name of a file to read commands from, one per line, as '
           'they would appear on the command line, with spaces escaped or '
-          'quoted. Specify "-" to read from stdin.');
-  final ArgResults flags = parser.parse(args);
+          'quoted. Specify "-" to read from stdin.',
+      defaultsTo: '-');
+  final ArgResults options = parser.parse(args);
 
-  if (flags['help'] as bool) {
+  if (options['help'] as bool) {
     print('main.dart [flags]');
     print(parser.usage);
     exit(0);
   }
 
+  // Collect the commands to be run from the command file.
+  final String commandFile = options['file'] as String;
   List<String> fileCommands = <String>[];
-  if (flags['cmdFile'] != null) {
-    if (flags['cmdFile'] == '-') {
+  if (commandFile != null) {
+    // Read from stdin if the --file option is set to '-'.
+    if (commandFile == '-') {
       String line = stdin.readLineSync();
       while (line != null) {
         fileCommands.add(line);
         line = stdin.readLineSync();
       }
     } else {
-      final File cmdFile = File(flags['cmdFile'] as String);
+      // Read the commands from a file.
+      final File cmdFile = File(commandFile);
       if (!cmdFile.existsSync()) {
-        print('Command file "$cmdFile" doesn\'t exist.');
+        print('Command file "$commandFile" doesn\'t exist.');
         exit(1);
       }
       fileCommands = cmdFile.readAsLinesSync();
     }
   }
+
+  // Collect all the commands, both from the input file, and from the command
+  // line. The command line commands come first (although they could all be
+  // executed simultaneously, depending on the number of workers, and number of
+  // commands).
   final List<String> commands = <String>[
-    ...flags['cmd'] as List<String>,
+    ...options['cmd'] as List<String>,
     ...fileCommands,
   ];
+
+  // Split each command entry into a list of strings, taking into account some
+  // simple quoting and escaping.
   final List<List<String>> splitCommands = commands.map<List<String>>(splitIntoArgs).toList();
 
-  int numWorkers = int.parse((flags['workers'] as String) ?? '-1');
-  numWorkers = numWorkers == -1 ? null : numWorkers;
+  // If the numWorkers is set to null, then the ProcessPool will automatically
+  // select the number of processes based on how many CPU cores the machine has.
+  final int numWorkers = int.tryParse(options['workers'] as String ?? '');
 
-  final bool printReport = (flags['report'] as bool) ?? false;
+  final bool printReport = (options['report'] as bool) ?? false;
 
-  final Directory workingDirectory = Directory((flags['workingDirectory'] as String) ?? '.');
+  final Directory workingDirectory = Directory((options['workingDirectory'] as String) ?? '.');
 
   final ProcessPool pool = ProcessPool(
     numWorkers: numWorkers,

@@ -4,5 +4,5 @@
 
 library process_runner;
 
-export 'process_pool.dart';
-export 'process_runner_impl.dart';
+export 'src/process_pool.dart';
+export 'src/process_runner.dart';
