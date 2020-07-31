@@ -1,5 +1,10 @@
 # Change Log for `process_runner`
 
+## 2.0.4
+
+* Added `printOutputDefault` to the `ProcessRunner` constructor, and updated
+  docs.
+
 ## 2.0.3
 
 * Updated [README.md](README.md) to fix a broken example. Bumping version to get
