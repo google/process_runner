@@ -115,6 +115,7 @@ class ProcessRunner {
     this.processManager = const LocalProcessManager(),
     Map<String, String> environment,
     this.includeParentEnvironment = true,
+    this.printOutputDefault = false,
     this.decoder = const SystemEncoding(),
   })  : defaultWorkingDirectory = defaultWorkingDirectory ?? Directory.current,
         environment = environment ?? Map<String, String>.from(defaultPlatform.environment);
@@ -145,6 +146,16 @@ class ProcessRunner {
   /// If false, uses [environment] as the entire environment to run in.
   final bool includeParentEnvironment;
 
+  /// If set, indicates that, by default, commands will both write the output to
+  /// stdout/stderr, as well as return it in the [ProcessRunnerResult.stderr],
+  /// [ProcessRunnerResult.stderr] members.
+  ///
+  /// This setting can be overridden on a per-run basis by providing
+  /// `printOutput` to the [runProcess] function.
+  ///
+  /// Defaults to false.
+  final bool printOutputDefault;
+
   /// The decoder to use for decoding result stderr, stdout, and output.
   ///
   /// Defaults to an instance of [SystemEncoding].
@@ -156,14 +167,22 @@ class ProcessRunner {
   ///
   /// Set `failOk` if [runProcess] should not throw an exception when the
   /// command completes with a a non-zero exit code.
+  ///
+  /// If `printOutput` is set, indicates that the command will both write the
+  /// output to stdout/stderr, as well as return it in the
+  /// [ProcessRunnerResult.stderr], [ProcessRunnerResult.stderr] members of the
+  /// result. This overrides the setting of [printOutputDefault].
+  ///
+  /// The `printOutput` argument defaults to the value of [printOutputDefault].
   Future<ProcessRunnerResult> runProcess(
     List<String> commandLine, {
     Directory workingDirectory,
-    bool printOutput = false,
+    bool printOutput,
     bool failOk = false,
     Stream<List<int>> stdin,
   }) async {
     workingDirectory ??= defaultWorkingDirectory;
+    printOutput ??= printOutputDefault;
     if (printOutput) {
       stderr.write('Running "${commandLine.join(' ')}" in ${workingDirectory.path}.\n');
     }
