@@ -1,5 +1,10 @@
 # Change Log for `process_runner`
 
+## 2.0.5
+
+* Added `WorkerJob.failOk` so that failure message of failed worker jobs is
+  suppressed by default, but can be turned on.
+
 ## 2.0.4
 
 * Added `printOutputDefault` to the `ProcessRunner` constructor, and updated
