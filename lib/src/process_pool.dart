@@ -4,7 +4,7 @@
 
 import 'dart:async';
 import 'dart:convert' show Encoding;
-import 'dart:io' show Directory, Platform, stdout, SystemEncoding;
+import 'dart:io' show Directory, Platform, stdout, SystemEncoding, stderr;
 
 import 'package:async/async.dart' show StreamGroup;
 
@@ -22,7 +22,10 @@ class WorkerJob {
     this.printOutput = false,
     this.stdin,
     this.stdinRaw,
-  }) : name = name ?? command.join(' ');
+    this.failOk = true,
+  })  : assert(failOk != null),
+        assert(printOutput != null),
+        name = name ?? command.join(' ');
 
   /// The name of the job.
   ///
@@ -53,6 +56,12 @@ class WorkerJob {
 
   /// Whether or not this command should print it's stdout when it runs.
   final bool printOutput;
+
+  /// Whether or not failure of this job should print a message to stderr or
+  /// not.
+  ///
+  /// Defaults to true, since the [result] will contain the exit code.
+  final bool failOk;
 
   /// Once the job is complete, this contains the result of the job.
   ///
@@ -174,10 +183,13 @@ class ProcessPool {
         workingDirectory: job.workingDirectory,
         printOutput: job.printOutput,
         stdin: job.stdinRaw ?? (job.stdin != null ? encoding.encoder.bind(job.stdin) : null),
+        failOk: false, // Must be false so that we can catch the exception below.
       );
       _completedJobs.add(job);
     } on ProcessRunnerException catch (e) {
-      print('\nJob $job failed: $e');
+      if (!job.failOk) {
+        stderr.writeln('\nJob $job failed: $e');
+      }
       _failedJobs.add(job);
     } finally {
       _inProgressJobs--;
