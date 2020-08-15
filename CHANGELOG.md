@@ -1,5 +1,12 @@
 # Change Log for `process_runner`
 
+## 3.0.0
+
+* Breaking change to change the `result` given in the `ProcessRunnerException`
+  to be a `ProcessRunnerResult` instead of a `ProcessResult`, which can't
+  include the interleaved stdout/stderr output for failed commands.
+* Modified the `ProcessPool` to set the result correctly on failed jobs.
+
 ## 2.0.5
 
 * Added `WorkerJob.failOk` so that failure message of failed worker jobs is

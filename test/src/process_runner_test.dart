@@ -54,5 +54,18 @@ void main() {
       fakeProcessManager.fakeResults = calls;
       await expectLater(() => processRunner.runProcess(calls.keys.first), throwsException);
     });
+    test('runProcess returns the failed results properly', () async {
+      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
+        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+          ProcessResult(0, -1, 'output1', 'stderr1'),
+        ],
+      };
+      fakeProcessManager.fakeResults = calls;
+      final ProcessRunnerResult result =
+          await processRunner.runProcess(calls.keys.first, failOk: true);
+      expect(result.stdout, equals('output1'));
+      expect(result.stderr, equals('stderr1'));
+      expect(result.output, equals('output1stderr1'));
+    });
   });
 }
