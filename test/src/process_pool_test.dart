@@ -49,5 +49,21 @@ void main() {
       await processPool.runToCompletion(jobs);
       fakeProcessManager.verifyCalls(calls.keys);
     });
+    test('failed tests report results', () async {
+      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
+        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+          ProcessResult(0, -1, 'output1', 'stderr1'),
+        ],
+      };
+      fakeProcessManager.fakeResults = calls;
+      final List<WorkerJob> jobs = <WorkerJob>[
+        WorkerJob(<String>['command', 'arg1', 'arg2'], name: 'job 1'),
+      ];
+      final List<WorkerJob> completed = await processPool.runToCompletion(jobs);
+      expect(completed.first.result.exitCode, equals(-1));
+      expect(completed.first.result.stdout, equals('output1'));
+      expect(completed.first.result.stderr, equals('stderr1'));
+      expect(completed.first.result.output, equals('output1stderr1'));
+    });
   });
 }

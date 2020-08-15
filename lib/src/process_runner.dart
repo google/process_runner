@@ -19,7 +19,7 @@ class ProcessRunnerException implements Exception {
   ProcessRunnerException(this.message, {this.result});
 
   final String message;
-  final ProcessResult result;
+  final ProcessRunnerResult result;
 
   int get exitCode => result?.exitCode ?? -1;
 
@@ -27,7 +27,7 @@ class ProcessRunnerException implements Exception {
   String toString() {
     String output = runtimeType.toString();
     output += ': $message';
-    final String stderr = (result?.stderr ?? '') as String;
+    final String stderr = result?.stderr ?? '';
     if (stderr.isNotEmpty) {
       output += ':\n$stderr';
     }
@@ -249,14 +249,15 @@ class ProcessRunner {
     final int exitCode = await allComplete();
     if (exitCode != 0 && !failOk) {
       final String message =
-          'Running "${commandLine.join(' ')}" in ${workingDirectory.path} failed';
+          'Running "${commandLine.join(' ')}" in ${workingDirectory.path} exited with code $exitCode\n${decoder.decode(combinedOutput)}';
       throw ProcessRunnerException(
         message,
-        result: ProcessResult(
-          0,
+        result: ProcessRunnerResult(
           exitCode,
-          null,
-          'exited with code $exitCode\n${decoder.decode(combinedOutput)}',
+          stdoutOutput,
+          stderrOutput,
+          combinedOutput,
+          decoder: decoder,
         ),
       );
     }

@@ -190,6 +190,7 @@ class ProcessPool {
       if (!job.failOk) {
         stderr.writeln('\nJob $job failed: $e');
       }
+      job.result = e.result;
       _failedJobs.add(job);
     } finally {
       _inProgressJobs--;
