@@ -17,14 +17,13 @@ import 'process_runner.dart';
 class WorkerJob {
   WorkerJob(
     this.command, {
-    String name,
-    this.workingDirectory,
+    String? name,
+    Directory? workingDirectory,
     this.printOutput = false,
     this.stdin,
     this.stdinRaw,
     this.failOk = true,
-  })  : assert(failOk != null),
-        assert(printOutput != null),
+  })  : workingDirectory = workingDirectory ?? Directory.current,
         name = name ?? command.join(' ');
 
   /// The name of the job.
@@ -45,14 +44,14 @@ class WorkerJob {
   /// the process.
   ///
   /// If both [stdin] and [stdinRaw] are set, only [stdinRaw] will be used.
-  final Stream<String> stdin;
+  final Stream<String>? stdin;
 
   /// If set, the stream to read the raw stdin for this process from.
   ///
   /// It will be used directly, and not encoded (as [stdin] would be).
   ///
   /// If both [stdin] and [stdinRaw] are set, only [stdinRaw] will be used.
-  final Stream<List<int>> stdinRaw;
+  final Stream<List<int>>? stdinRaw;
 
   /// Whether or not this command should print it's stdout when it runs.
   final bool printOutput;
@@ -71,7 +70,7 @@ class WorkerJob {
   ///
   /// If no process runner is supplied to the pool, then the decoder will be the
   /// same as the [ProcessPool.encoding] that was set on the pool.
-  ProcessRunnerResult result;
+  ProcessRunnerResult? result;
 
   @override
   String toString() {
@@ -92,8 +91,8 @@ typedef ProcessPoolProgressReporter = void Function(
 /// (presumably single-threaded) processes are finished.
 class ProcessPool {
   ProcessPool({
-    int numWorkers,
-    ProcessRunner processRunner,
+    int? numWorkers,
+    ProcessRunner? processRunner,
     this.printReport = defaultPrintReport,
     this.encoding = const SystemEncoding(),
   })  : processRunner = processRunner ?? ProcessRunner(decoder: encoding),
@@ -105,7 +104,7 @@ class ProcessPool {
   ///
   /// Defaults to [defaultProgressReport], which prints the progress report to
   /// stdout.
-  final ProcessPoolProgressReporter printReport;
+  final ProcessPoolProgressReporter? printReport;
 
   /// The decoder to use for decoding the stdout, stderr, and output of a
   /// process, and encoding the stdin from the job.
@@ -182,7 +181,7 @@ class ProcessPool {
         job.command,
         workingDirectory: job.workingDirectory,
         printOutput: job.printOutput,
-        stdin: job.stdinRaw ?? (job.stdin != null ? encoding.encoder.bind(job.stdin) : null),
+        stdin: job.stdinRaw ?? encoding.encoder.bind(job.stdin ?? const Stream<String>.empty()),
         failOk: false, // Must be false so that we can catch the exception below.
       );
       _completedJobs.add(job);

@@ -7,7 +7,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:process/process.dart';
-import 'package:mockito/mockito.dart';
 import 'package:test/test.dart' as test_package show TypeMatcher;
 import 'package:test/test.dart' hide TypeMatcher, isInstanceOf;
 
@@ -20,10 +19,8 @@ test_package.TypeMatcher<T> isInstanceOf<T>() => isA<T>();
 /// each command line (with arguments).
 ///
 /// Call [verifyCalls] to verify that each desired call occurred.
-class FakeProcessManager extends Mock implements ProcessManager {
-  FakeProcessManager(this.stdinResults) {
-    _setupMock();
-  }
+class FakeProcessManager implements ProcessManager {
+  FakeProcessManager(this.stdinResults);
 
   /// The callback that will be called each time stdin input is supplied to
   /// a call.
@@ -42,7 +39,7 @@ class FakeProcessManager extends Mock implements ProcessManager {
   }
 
   /// The list of invocations that occurred, in the order they occurred.
-  List<Invocation> invocations = <Invocation>[];
+  List<List<String>> invocations = <List<String>>[];
 
   /// Verify that the given command lines were called, in the given order, and
   /// that the parameters were in the same order.
@@ -50,15 +47,15 @@ class FakeProcessManager extends Mock implements ProcessManager {
     int index = 0;
     expect(invocations.length, equals(calls.length));
     for (final List<String> call in calls) {
-      expect(call, orderedEquals(invocations[index].positionalArguments[0] as Iterable<dynamic>));
+      expect(call, orderedEquals(invocations[index]));
       index++;
     }
   }
 
   ProcessResult _popResult(List<String> command) {
     expect(fakeResults, isNotEmpty);
-    List<ProcessResult> foundResult;
-    List<String> foundCommand;
+    late List<ProcessResult> foundResult;
+    late List<String> foundCommand;
     for (final List<String> fakeCommand in fakeResults.keys) {
       if (fakeCommand.length != command.length) {
         continue;
@@ -71,69 +68,73 @@ class FakeProcessManager extends Mock implements ProcessManager {
         }
       }
       if (listsIdentical) {
-        foundResult = fakeResults[fakeCommand];
+        foundResult = fakeResults[fakeCommand]!;
         foundCommand = fakeCommand;
         break;
       }
     }
     expect(foundResult, isNotNull, reason: '$command not found in expected results.');
     expect(foundResult, isNotEmpty);
-    return fakeResults[foundCommand]?.removeAt(0);
+    return fakeResults[foundCommand]?.removeAt(0) ?? ProcessResult(0, 0, '', '');
   }
 
   FakeProcess _popProcess(List<String> command) => FakeProcess(_popResult(command), stdinResults);
 
-  Future<Process> _nextProcess(Invocation invocation) async {
+  Future<Process> _nextProcess(List<String> invocation) async {
     invocations.add(invocation);
-    return Future<Process>.value(_popProcess(invocation.positionalArguments[0] as List<String>));
+    return Future<Process>.value(_popProcess(invocation));
   }
 
-  ProcessResult _nextResultSync(Invocation invocation) {
+  ProcessResult _nextResultSync(List<String> invocation) {
     invocations.add(invocation);
-    return _popResult(invocation.positionalArguments[0] as List<String>);
+    return _popResult(invocation);
   }
 
-  Future<ProcessResult> _nextResult(Invocation invocation) async {
+  Future<ProcessResult> _nextResult(List<String> invocation) async {
     invocations.add(invocation);
-    return Future<ProcessResult>.value(
-        _popResult(invocation.positionalArguments[0] as List<String>));
+    return Future<ProcessResult>.value(_popResult(invocation));
   }
 
-  void _setupMock() {
-    // Not all possible types of invocations are covered here, just the ones
-    // expected to be called by ProcessManager.
-    // TODO(gspencergoog): make this more general so that any call will be captured.
-    when(start(
-      any,
-      // ignore: dead_code
-      environment: anyNamed('environment'),
-      // ignore: dead_code
-      workingDirectory: anyNamed('workingDirectory'),
-      // ignore: dead_code
-      runInShell: anyNamed('runInShell'),
-    )).thenAnswer(_nextProcess);
+  @override
+  bool canRun(dynamic executable, {String? workingDirectory}) {
+    return true;
+  }
 
-    when(start(any)).thenAnswer(_nextProcess);
+  @override
+  bool killPid(int pid, [ProcessSignal signal = ProcessSignal.sigterm]) {
+    return true;
+  }
 
-    when(run(
-      any,
-      environment: anyNamed('environment'),
-      workingDirectory: anyNamed('workingDirectory'),
-    )).thenAnswer(_nextResult);
+  @override
+  Future<ProcessResult> run(List<dynamic> command,
+      {String? workingDirectory,
+      Map<String, String>? environment,
+      bool includeParentEnvironment = true,
+      bool runInShell = false,
+      Encoding stdoutEncoding = systemEncoding,
+      Encoding stderrEncoding = systemEncoding}) {
+    return _nextResult(command as List<String>);
+  }
 
-    when(run(any)).thenAnswer(_nextResult);
+  @override
+  ProcessResult runSync(List<dynamic> command,
+      {String? workingDirectory,
+      Map<String, String>? environment,
+      bool includeParentEnvironment = true,
+      bool runInShell = false,
+      Encoding stdoutEncoding = systemEncoding,
+      Encoding stderrEncoding = systemEncoding}) {
+    return _nextResultSync(command as List<String>);
+  }
 
-    when(runSync(
-      any,
-      environment: anyNamed('environment'),
-      workingDirectory: anyNamed('workingDirectory'),
-    )).thenAnswer(_nextResultSync);
-
-    when(runSync(any)).thenAnswer(_nextResultSync);
-
-    when(killPid(any, any)).thenReturn(true);
-
-    when(canRun(any, workingDirectory: anyNamed('workingDirectory'))).thenReturn(true);
+  @override
+  Future<Process> start(List<dynamic> command,
+      {String? workingDirectory,
+      Map<String, String>? environment,
+      bool includeParentEnvironment = true,
+      bool runInShell = false,
+      ProcessStartMode mode = ProcessStartMode.normal}) {
+    return _nextProcess(command as List<String>);
   }
 }
 
@@ -141,24 +142,17 @@ typedef StdinResults = void Function(String input);
 
 /// A fake process that can be used to interact with a process "started" by the
 /// FakeProcessManager.
-class FakeProcess extends Mock implements Process {
+class FakeProcess implements Process {
   FakeProcess(ProcessResult result, StdinResults stdinResults)
       : stdoutStream = Stream<List<int>>.value((result.stdout as String).codeUnits),
         stderrStream = Stream<List<int>>.value((result.stderr as String).codeUnits),
         desiredExitCode = result.exitCode,
-        stdinSink = IOSink(StringStreamConsumer(stdinResults)) {
-    _setupMock();
-  }
+        stdinSink = IOSink(StringStreamConsumer(stdinResults));
 
   final IOSink stdinSink;
   final Stream<List<int>> stdoutStream;
   final Stream<List<int>> stderrStream;
   final int desiredExitCode;
-
-  void _setupMock() {
-    // ignore: dead_code
-    when(kill(any)).thenReturn(true);
-  }
 
   @override
   Future<int> get exitCode => Future<int>.value(desiredExitCode);
@@ -174,6 +168,11 @@ class FakeProcess extends Mock implements Process {
 
   @override
   Stream<List<int>> get stdout => stdoutStream;
+
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    return true;
+  }
 }
 
 /// Callback used to receive stdin input when it occurs.
