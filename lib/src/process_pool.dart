@@ -23,8 +23,7 @@ class WorkerJob {
     this.stdin,
     this.stdinRaw,
     this.failOk = true,
-  })  : assert(failOk != null),
-        assert(printOutput != null),
+  })  : workingDirectory = workingDirectory ?? Directory.current,
         name = name ?? command.join(' ');
 
   /// The name of the job.
