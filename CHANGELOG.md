@@ -1,5 +1,9 @@
 # Change Log for `process_runner`
 
+## 4.0.0-nullsafety
+
+* Convert to non-nullable by default, enable null-safety experiment for Dart.
+
 ## 3.1.1
 
 * Reverted part of the migrated null safety changes, as defaulting to the

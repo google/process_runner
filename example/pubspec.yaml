@@ -3,14 +3,13 @@
 # found in the LICENSE file.
 
 name: process_runner_example
-version: 1.0.0
+version: 2.0.0-nullsafety
 description: A an example for process_runner.
 homepage: https://github.com/google/process_runner/example
 
 dependencies:
-  args: ^1.6.0
   process_runner:
     path: ..
 
 environment:
-  sdk: '>=2.3.0 <3.0.0'
+  sdk: '>=2.10.0-4.0.dev <2.10.0'

@@ -17,7 +17,7 @@ import 'process_runner.dart';
 class WorkerJob {
   WorkerJob(
     this.command, {
-    String name,
+    String? name,
     this.workingDirectory,
     this.printOutput = false,
     this.stdin,
@@ -37,7 +37,7 @@ class WorkerJob {
   final List<String> command;
 
   /// The working directory that the command should be executed in.
-  final Directory workingDirectory;
+  final Directory? workingDirectory;
 
   /// If set, the stream to read the stdin for this process from.
   ///
@@ -45,14 +45,14 @@ class WorkerJob {
   /// the process.
   ///
   /// If both [stdin] and [stdinRaw] are set, only [stdinRaw] will be used.
-  final Stream<String> stdin;
+  final Stream<String>? stdin;
 
   /// If set, the stream to read the raw stdin for this process from.
   ///
   /// It will be used directly, and not encoded (as [stdin] would be).
   ///
   /// If both [stdin] and [stdinRaw] are set, only [stdinRaw] will be used.
-  final Stream<List<int>> stdinRaw;
+  final Stream<List<int>>? stdinRaw;
 
   /// Whether or not this command should print it's stdout when it runs.
   final bool printOutput;
@@ -71,7 +71,7 @@ class WorkerJob {
   ///
   /// If no process runner is supplied to the pool, then the decoder will be the
   /// same as the [ProcessPool.encoding] that was set on the pool.
-  ProcessRunnerResult result;
+  ProcessRunnerResult? result;
 
   /// Once the job is complete, if it had an exception while running, this
   /// member contains the exception.
@@ -96,8 +96,8 @@ typedef ProcessPoolProgressReporter = void Function(
 /// (presumably single-threaded) processes are finished.
 class ProcessPool {
   ProcessPool({
-    int numWorkers,
-    ProcessRunner processRunner,
+    int? numWorkers,
+    ProcessRunner? processRunner,
     this.printReport = defaultPrintReport,
     this.encoding = const SystemEncoding(),
   })  : processRunner = processRunner ?? ProcessRunner(decoder: encoding),
@@ -109,7 +109,7 @@ class ProcessPool {
   ///
   /// Defaults to [defaultProgressReport], which prints the progress report to
   /// stdout.
-  final ProcessPoolProgressReporter printReport;
+  final ProcessPoolProgressReporter? printReport;
 
   /// The decoder to use for decoding the stdout, stderr, and output of a
   /// process, and encoding the stdin from the job.
