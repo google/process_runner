@@ -58,8 +58,8 @@ class FakeProcessManager implements ProcessManager {
 
   ProcessResult _popResult(List<String> command) {
     expect(fakeResults, isNotEmpty);
-    List<ProcessResult> foundResult;
-    List<String> foundCommand;
+    late List<ProcessResult> foundResult;
+    late List<String> foundCommand;
     for (final List<String> fakeCommand in fakeResults.keys) {
       if (fakeCommand.length != command.length) {
         continue;
@@ -72,7 +72,7 @@ class FakeProcessManager implements ProcessManager {
         }
       }
       if (listsIdentical) {
-        foundResult = fakeResults[fakeCommand];
+        foundResult = fakeResults[fakeCommand]!;
         foundCommand = fakeCommand;
         break;
       }
@@ -100,7 +100,7 @@ class FakeProcessManager implements ProcessManager {
   }
 
   @override
-  bool canRun(dynamic executable, {String workingDirectory}) {
+  bool canRun(dynamic executable, {String? workingDirectory}) {
     return true;
   }
 
@@ -110,15 +110,14 @@ class FakeProcessManager implements ProcessManager {
   }
 
   @override
-  Future<ProcessResult> run(
-    List<dynamic> command, {
-    String workingDirectory,
-    Map<String, String> environment,
-    bool includeParentEnvironment = true,
-    bool runInShell = false,
-    Encoding stdoutEncoding = systemEncoding,
-    Encoding stderrEncoding = systemEncoding,
-  }) {
+  Future<ProcessResult> run(List<dynamic> command,
+      {String? workingDirectory,
+      Map<String, String>? environment,
+      bool includeParentEnvironment = true,
+      bool runInShell = false,
+      Encoding stdoutEncoding = systemEncoding,
+      Encoding stderrEncoding = systemEncoding,
+    }) {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }
@@ -126,15 +125,13 @@ class FakeProcessManager implements ProcessManager {
   }
 
   @override
-  ProcessResult runSync(
-    List<dynamic> command, {
-    String workingDirectory,
-    Map<String, String> environment,
-    bool includeParentEnvironment = true,
-    bool runInShell = false,
-    Encoding stdoutEncoding = systemEncoding,
-    Encoding stderrEncoding = systemEncoding,
-  }) {
+  ProcessResult runSync(List<dynamic> command,
+      {String? workingDirectory,
+      Map<String, String>? environment,
+      bool includeParentEnvironment = true,
+      bool runInShell = false,
+      Encoding stdoutEncoding = systemEncoding,
+      Encoding stderrEncoding = systemEncoding}) {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }
@@ -142,14 +139,12 @@ class FakeProcessManager implements ProcessManager {
   }
 
   @override
-  Future<Process> start(
-    List<dynamic> command, {
-    String workingDirectory,
-    Map<String, String> environment,
-    bool includeParentEnvironment = true,
-    bool runInShell = false,
-    ProcessStartMode mode = ProcessStartMode.normal,
-  }) {
+  Future<Process> start(List<dynamic> command,
+      {String? workingDirectory,
+      Map<String, String>? environment,
+      bool includeParentEnvironment = true,
+      bool runInShell = false,
+      ProcessStartMode mode = ProcessStartMode.normal}) {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }

@@ -17,4 +17,4 @@ REPO_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$REPO_DIR"
 
 # Run the tests.
-pub run test
+pub run --enable-experiment=non-nullable test
