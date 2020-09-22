@@ -1,5 +1,9 @@
 # Change Log for `process_runner`
 
+## 4.0.0-nullsafety.1
+
+* Expand the sdk constraint to `<2.11.0`.
+
 ## 4.0.0-nullsafety
 
 * Convert to non-nullable by default, enable null-safety experiment for Dart.
