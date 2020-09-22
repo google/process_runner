@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 name: process_runner
-version: 4.0.0-nullsafety
+version: 4.0.0-nullsafety.1
 description: A process invocation astraction for Dart that manages a multiprocess queue.
 homepage: https://github.com/google/process_runner
 
@@ -19,4 +19,4 @@ dev_dependencies:
   test: ^1.16.0-nullsafety.1
 
 environment:
-  sdk: '>=2.10.0-4.0.dev <2.10.0'
+  sdk: '>=2.10.0-4.0.dev <2.11.0'
