@@ -1,5 +1,9 @@
 # Change Log for `process_runner`
 
+## 4.0.0-nullsafety.2
+
+* Rebase onto non-nullsafety version 3.1.0 to pick up those changes. 
+
 ## 4.0.0-nullsafety.1
 
 * Expand the sdk constraint to `<2.11.0`.
@@ -7,6 +11,14 @@
 ## 4.0.0-nullsafety
 
 * Convert to non-nullable by default, enable null-safety experiment for Dart.
+
+## 3.1.0
+
+* Add `exception` to the `WorkerJob` so that when commands fail to run, the
+  exception output can be seen.
+* Fixed a problem with the default output function where it didn't count
+  failed jobs as finished.
+* Removed dependency on mockito and args to match nullsafety version.
 
 ## 3.0.0
 

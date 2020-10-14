@@ -20,11 +20,15 @@ test_package.TypeMatcher<T> isInstanceOf<T>() => isA<T>();
 ///
 /// Call [verifyCalls] to verify that each desired call occurred.
 class FakeProcessManager implements ProcessManager {
-  FakeProcessManager(this.stdinResults);
+  FakeProcessManager(this.stdinResults, {this.commandsThrow = false});
 
   /// The callback that will be called each time stdin input is supplied to
   /// a call.
   final StringReceivedCallback stdinResults;
+
+  /// Set to true if all commands run with this process manager should throw an
+  /// exception.
+  final bool commandsThrow;
 
   /// The list of results that will be sent back, organized by the command line
   /// that will produce them. Each command line has a list of returned stdout
@@ -106,34 +110,49 @@ class FakeProcessManager implements ProcessManager {
   }
 
   @override
-  Future<ProcessResult> run(List<dynamic> command,
-      {String? workingDirectory,
-      Map<String, String>? environment,
-      bool includeParentEnvironment = true,
-      bool runInShell = false,
-      Encoding stdoutEncoding = systemEncoding,
-      Encoding stderrEncoding = systemEncoding}) {
+  Future<ProcessResult> run(
+    List<dynamic> command, {
+    String? workingDirectory,
+    Map<String, String>? environment,
+    bool includeParentEnvironment = true,
+    bool runInShell = false,
+    Encoding stdoutEncoding = systemEncoding,
+    Encoding stderrEncoding = systemEncoding,
+  }) {
+    if (commandsThrow) {
+      throw const ProcessException('failed_executable', <String>[]);
+    }
     return _nextResult(command as List<String>);
   }
 
   @override
-  ProcessResult runSync(List<dynamic> command,
-      {String? workingDirectory,
-      Map<String, String>? environment,
-      bool includeParentEnvironment = true,
-      bool runInShell = false,
-      Encoding stdoutEncoding = systemEncoding,
-      Encoding stderrEncoding = systemEncoding}) {
+  ProcessResult runSync(
+    List<dynamic> command, {
+    String? workingDirectory,
+    Map<String, String>? environment,
+    bool includeParentEnvironment = true,
+    bool runInShell = false,
+    Encoding stdoutEncoding = systemEncoding,
+    Encoding stderrEncoding = systemEncoding,
+  }) {
+    if (commandsThrow) {
+      throw const ProcessException('failed_executable', <String>[]);
+    }
     return _nextResultSync(command as List<String>);
   }
 
   @override
-  Future<Process> start(List<dynamic> command,
-      {String? workingDirectory,
-      Map<String, String>? environment,
-      bool includeParentEnvironment = true,
-      bool runInShell = false,
-      ProcessStartMode mode = ProcessStartMode.normal}) {
+  Future<Process> start(
+    List<dynamic> command, {
+    String? workingDirectory,
+    Map<String, String>? environment,
+    bool includeParentEnvironment = true,
+    bool runInShell = false,
+    ProcessStartMode mode = ProcessStartMode.normal,
+  }) {
+    if (commandsThrow) {
+      throw const ProcessException('failed_executable', <String>[]);
+    }
     return _nextProcess(command as List<String>);
   }
 }

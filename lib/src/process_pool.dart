@@ -72,6 +72,10 @@ class WorkerJob {
   /// same as the [ProcessPool.encoding] that was set on the pool.
   ProcessRunnerResult? result;
 
+  /// Once the job is complete, if it had an exception while running, this
+  /// member contains the exception.
+  Exception? exception;
+
   @override
   String toString() {
     return command.join(' ');
@@ -163,7 +167,7 @@ class ProcessPool {
     int pending,
     int failed,
   ) {
-    final String percent = total == 0 ? '100' : ((100 * completed) ~/ total).toString().padLeft(3);
+    final String percent = total == 0 ? '100' : ((100 * (completed + failed)) ~/ total).toString().padLeft(3);
     final String completedStr = completed.toString().padLeft(3);
     final String totalStr = total.toString().padRight(3);
     final String inProgressStr = inProgress.toString().padLeft(2);
@@ -190,6 +194,7 @@ class ProcessPool {
         stderr.writeln('\nJob $job failed: $e');
       }
       job.result = e.result;
+      job.exception = e;
       _failedJobs.add(job);
     } finally {
       _inProgressJobs--;
