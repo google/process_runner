@@ -18,13 +18,14 @@ class WorkerJob {
   WorkerJob(
     this.command, {
     String name,
-    this.workingDirectory,
+    Directory workingDirectory,
     this.printOutput = false,
     this.stdin,
     this.stdinRaw,
     this.failOk = true,
   })  : assert(failOk != null),
         assert(printOutput != null),
+        workingDirectory = workingDirectory ?? Directory.current,
         name = name ?? command.join(' ');
 
   /// The name of the job.
@@ -72,6 +73,10 @@ class WorkerJob {
   /// If no process runner is supplied to the pool, then the decoder will be the
   /// same as the [ProcessPool.encoding] that was set on the pool.
   ProcessRunnerResult result;
+
+  /// Once the job is complete, if it had an exception while running, this
+  /// member contains the exception.
+  Exception exception;
 
   @override
   String toString() {
@@ -164,7 +169,7 @@ class ProcessPool {
     int pending,
     int failed,
   ) {
-    final String percent = total == 0 ? '100' : ((100 * completed) ~/ total).toString().padLeft(3);
+    final String percent = total == 0 ? '100' : ((100 * (completed + failed)) ~/ total).toString().padLeft(3);
     final String completedStr = completed.toString().padLeft(3);
     final String totalStr = total.toString().padRight(3);
     final String inProgressStr = inProgress.toString().padLeft(2);
@@ -182,7 +187,7 @@ class ProcessPool {
         job.command,
         workingDirectory: job.workingDirectory,
         printOutput: job.printOutput,
-        stdin: job.stdinRaw ?? (job.stdin != null ? encoding.encoder.bind(job.stdin) : null),
+        stdin: job.stdinRaw ?? encoding.encoder.bind(job.stdin ?? const Stream<String>.empty()),
         failOk: false, // Must be false so that we can catch the exception below.
       );
       _completedJobs.add(job);
@@ -191,6 +196,7 @@ class ProcessPool {
         stderr.writeln('\nJob $job failed: $e');
       }
       job.result = e.result;
+      job.exception = e;
       _failedJobs.add(job);
     } finally {
       _inProgressJobs--;
