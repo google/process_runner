@@ -75,7 +75,7 @@ class WorkerJob {
 
   /// Once the job is complete, if it had an exception while running, this
   /// member contains the exception.
-  Exception exception;
+  Exception? exception;
 
   @override
   String toString() {

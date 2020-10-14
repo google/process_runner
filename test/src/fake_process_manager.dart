@@ -122,14 +122,15 @@ class FakeProcessManager implements ProcessManager {
   }
 
   @override
-  Future<ProcessResult> run(List<dynamic> command,
-      {String? workingDirectory,
-      Map<String, String>? environment,
-      bool includeParentEnvironment = true,
-      bool runInShell = false,
-      Encoding stdoutEncoding = systemEncoding,
-      Encoding stderrEncoding = systemEncoding,
-    }) {
+  Future<ProcessResult> run(
+    List<dynamic> command, {
+    String? workingDirectory,
+    Map<String, String>? environment,
+    bool includeParentEnvironment = true,
+    bool runInShell = false,
+    Encoding stdoutEncoding = systemEncoding,
+    Encoding stderrEncoding = systemEncoding,
+  }) {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }
@@ -137,13 +138,15 @@ class FakeProcessManager implements ProcessManager {
   }
 
   @override
-  ProcessResult runSync(List<dynamic> command,
-      {String? workingDirectory,
-      Map<String, String>? environment,
-      bool includeParentEnvironment = true,
-      bool runInShell = false,
-      Encoding stdoutEncoding = systemEncoding,
-      Encoding stderrEncoding = systemEncoding}) {
+  ProcessResult runSync(
+    List<dynamic> command, {
+    String? workingDirectory,
+    Map<String, String>? environment,
+    bool includeParentEnvironment = true,
+    bool runInShell = false,
+    Encoding stdoutEncoding = systemEncoding,
+    Encoding stderrEncoding = systemEncoding,
+  }) {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }
@@ -151,12 +154,14 @@ class FakeProcessManager implements ProcessManager {
   }
 
   @override
-  Future<Process> start(List<dynamic> command,
-      {String? workingDirectory,
-      Map<String, String>? environment,
-      bool includeParentEnvironment = true,
-      bool runInShell = false,
-      ProcessStartMode mode = ProcessStartMode.normal}) {
+  Future<Process> start(
+    List<dynamic> command, {
+    String? workingDirectory,
+    Map<String, String>? environment,
+    bool includeParentEnvironment = true,
+    bool runInShell = false,
+    ProcessStartMode mode = ProcessStartMode.normal,
+  }) {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }

@@ -1,5 +1,9 @@
 # Change Log for `process_runner`
 
+## 4.0.0-nullsafety.2
+
+* Rebase onto non-nullsafety version 3.1.0 to pick up those changes. 
+
 ## 4.0.0-nullsafety.1
 
 * Expand the sdk constraint to `<2.11.0`.
