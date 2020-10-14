@@ -1,5 +1,13 @@
 # Change Log for `process_runner`
 
+## 3.1.0
+
+* Add `exception` to the `WorkerJob` so that when commands fail to run, the
+  exception output can be seen.
+* Fixed a problem with the default output function where it didn't count
+  failed jobs as finished.
+* Removed dependency on mockito and args to match nullsafety version.
+
 ## 3.0.0
 
 * Breaking change to change the `result` given in the `ProcessRunnerException`

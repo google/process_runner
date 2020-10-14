@@ -5,7 +5,7 @@
 import 'dart:async' show Completer;
 import 'dart:convert' show Encoding;
 import 'dart:io'
-    show Process, ProcessResult, ProcessException, Directory, stderr, stdout, SystemEncoding
+    show Process, ProcessException, Directory, stderr, stdout, SystemEncoding
     hide Platform;
 
 import 'package:platform/platform.dart' show Platform, LocalPlatform;
