@@ -18,14 +18,13 @@ class WorkerJob {
   WorkerJob(
     this.command, {
     String name,
-    Directory workingDirectory,
+    this.workingDirectory,
     this.printOutput = false,
     this.stdin,
     this.stdinRaw,
     this.failOk = true,
   })  : assert(failOk != null),
         assert(printOutput != null),
-        workingDirectory = workingDirectory ?? Directory.current,
         name = name ?? command.join(' ');
 
   /// The name of the job.
@@ -169,7 +168,8 @@ class ProcessPool {
     int pending,
     int failed,
   ) {
-    final String percent = total == 0 ? '100' : ((100 * (completed + failed)) ~/ total).toString().padLeft(3);
+    final String percent =
+        total == 0 ? '100' : ((100 * (completed + failed)) ~/ total).toString().padLeft(3);
     final String completedStr = completed.toString().padLeft(3);
     final String totalStr = total.toString().padRight(3);
     final String inProgressStr = inProgress.toString().padLeft(2);
@@ -185,7 +185,7 @@ class ProcessPool {
       job.result = null;
       job.result = await processRunner.runProcess(
         job.command,
-        workingDirectory: job.workingDirectory,
+        workingDirectory: job.workingDirectory ?? processRunner.defaultWorkingDirectory,
         printOutput: job.printOutput,
         stdin: job.stdinRaw ?? encoding.encoder.bind(job.stdin ?? const Stream<String>.empty()),
         failOk: false, // Must be false so that we can catch the exception below.
