@@ -12,6 +12,12 @@ import 'package:test/test.dart' hide TypeMatcher, isInstanceOf;
 
 test_package.TypeMatcher<T> isInstanceOf<T>() => isA<T>();
 
+class FakeInvocationRecord {
+  FakeInvocationRecord(this.invocation, [this.workingDirectory]);
+  final List<String> invocation;
+  final String workingDirectory;
+}
+
 /// A mock that can be used to fake a process manager that runs commands
 /// and returns results.
 ///
@@ -33,40 +39,42 @@ class FakeProcessManager implements ProcessManager {
   /// The list of results that will be sent back, organized by the command line
   /// that will produce them. Each command line has a list of returned stdout
   /// output that will be returned on each successive call.
-  Map<List<String>, List<ProcessResult>> _fakeResults = <List<String>, List<ProcessResult>>{};
-  Map<List<String>, List<ProcessResult>> get fakeResults => _fakeResults;
-  set fakeResults(Map<List<String>, List<ProcessResult>> value) {
-    _fakeResults = <List<String>, List<ProcessResult>>{};
-    for (final List<String> key in value.keys) {
+  Map<FakeInvocationRecord, List<ProcessResult>> _fakeResults =
+      <FakeInvocationRecord, List<ProcessResult>>{};
+  Map<FakeInvocationRecord, List<ProcessResult>> get fakeResults => _fakeResults;
+  set fakeResults(Map<FakeInvocationRecord, List<ProcessResult>> value) {
+    _fakeResults = <FakeInvocationRecord, List<ProcessResult>>{};
+    for (final FakeInvocationRecord key in value.keys) {
       _fakeResults[key] = (value[key] ?? <ProcessResult>[ProcessResult(0, 0, '', '')]).toList();
     }
   }
 
   /// The list of invocations that occurred, in the order they occurred.
-  List<List<String>> invocations = <List<String>>[];
+  List<FakeInvocationRecord> invocations = <FakeInvocationRecord>[];
 
   /// Verify that the given command lines were called, in the given order, and
   /// that the parameters were in the same order.
-  void verifyCalls(Iterable<List<String>> calls) {
+  void verifyCalls(Iterable<FakeInvocationRecord> calls) {
     int index = 0;
     expect(invocations.length, equals(calls.length));
-    for (final List<String> call in calls) {
-      expect(call, orderedEquals(invocations[index]));
+    for (final FakeInvocationRecord call in calls) {
+      expect(call.invocation, orderedEquals(invocations[index].invocation));
+      expect(call.workingDirectory, equals(invocations[index].workingDirectory));
       index++;
     }
   }
 
-  ProcessResult _popResult(List<String> command) {
+  ProcessResult _popResult(FakeInvocationRecord command) {
     expect(fakeResults, isNotEmpty);
     List<ProcessResult> foundResult;
-    List<String> foundCommand;
-    for (final List<String> fakeCommand in fakeResults.keys) {
-      if (fakeCommand.length != command.length) {
+    FakeInvocationRecord foundCommand;
+    for (final FakeInvocationRecord fakeCommand in fakeResults.keys) {
+      if (fakeCommand.invocation.length != command.invocation.length) {
         continue;
       }
       bool listsIdentical = true;
-      for (int i = 0; i < fakeCommand.length; ++i) {
-        if (fakeCommand[i] != command[i]) {
+      for (int i = 0; i < fakeCommand.invocation.length; ++i) {
+        if (fakeCommand.invocation[i] != command.invocation[i]) {
           listsIdentical = false;
           break;
         }
@@ -82,21 +90,25 @@ class FakeProcessManager implements ProcessManager {
     return fakeResults[foundCommand]?.removeAt(0) ?? ProcessResult(0, 0, '', '');
   }
 
-  FakeProcess _popProcess(List<String> command) => FakeProcess(_popResult(command), stdinResults);
+  FakeProcess _popProcess(FakeInvocationRecord command) =>
+      FakeProcess(_popResult(command), stdinResults);
 
-  Future<Process> _nextProcess(List<String> invocation) async {
-    invocations.add(invocation);
-    return Future<Process>.value(_popProcess(invocation));
+  Future<Process> _nextProcess(List<String> invocation, String workingDirectory) async {
+    final FakeInvocationRecord record = FakeInvocationRecord(invocation, workingDirectory);
+    invocations.add(record);
+    return Future<Process>.value(_popProcess(record));
   }
 
-  ProcessResult _nextResultSync(List<String> invocation) {
-    invocations.add(invocation);
-    return _popResult(invocation);
+  ProcessResult _nextResultSync(List<String> invocation, String workingDirectory) {
+    final FakeInvocationRecord record = FakeInvocationRecord(invocation, workingDirectory);
+    invocations.add(record);
+    return _popResult(record);
   }
 
-  Future<ProcessResult> _nextResult(List<String> invocation) async {
-    invocations.add(invocation);
-    return Future<ProcessResult>.value(_popResult(invocation));
+  Future<ProcessResult> _nextResult(List<String> invocation, String workingDirectory) async {
+    final FakeInvocationRecord record = FakeInvocationRecord(invocation, workingDirectory);
+    invocations.add(record);
+    return Future<ProcessResult>.value(_popResult(record));
   }
 
   @override
@@ -122,7 +134,7 @@ class FakeProcessManager implements ProcessManager {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }
-    return _nextResult(command as List<String>);
+    return _nextResult(command as List<String>, workingDirectory);
   }
 
   @override
@@ -138,7 +150,7 @@ class FakeProcessManager implements ProcessManager {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }
-    return _nextResultSync(command as List<String>);
+    return _nextResultSync(command as List<String>, workingDirectory);
   }
 
   @override
@@ -153,7 +165,7 @@ class FakeProcessManager implements ProcessManager {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }
-    return _nextProcess(command as List<String>);
+    return _nextProcess(command as List<String>, workingDirectory);
   }
 }
 

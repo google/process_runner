@@ -28,17 +28,18 @@ void main() {
     tearDown(() async {});
 
     test('start works', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2']): <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
-        <String>['command2', 'arg1', 'arg2']: <ProcessResult>[
+        FakeInvocationRecord(<String>['command2', 'arg1', 'arg2']): <ProcessResult>[
           ProcessResult(0, 0, 'output2', ''),
         ],
       };
       processManager.fakeResults = calls;
-      for (final List<String> key in calls.keys) {
-        final Process process = await processManager.start(key);
+      for (final FakeInvocationRecord key in calls.keys) {
+        final Process process = await processManager.start(key.invocation);
         String output = '';
         process.stdout.listen((List<int> item) {
           output += utf8.decode(item);
@@ -50,51 +51,54 @@ void main() {
     });
 
     test('run works', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2']): <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
-        <String>['command2', 'arg1', 'arg2']: <ProcessResult>[
+        FakeInvocationRecord(<String>['command2', 'arg1', 'arg2']): <ProcessResult>[
           ProcessResult(0, 0, 'output2', ''),
         ],
       };
       processManager.fakeResults = calls;
-      for (final List<String> key in calls.keys) {
-        final ProcessResult result = await processManager.run(key);
+      for (final FakeInvocationRecord key in calls.keys) {
+        final ProcessResult result = await processManager.run(key.invocation);
         expect(result.stdout, equals((calls[key] ?? <ProcessResult>[])[0].stdout));
       }
       processManager.verifyCalls(calls.keys.toList());
     });
 
     test('runSync works', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2']): <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
-        <String>['command2', 'arg1', 'arg2']: <ProcessResult>[
+        FakeInvocationRecord(<String>['command2', 'arg1', 'arg2']): <ProcessResult>[
           ProcessResult(0, 0, 'output2', ''),
         ],
       };
       processManager.fakeResults = calls;
-      for (final List<String> key in calls.keys) {
-        final ProcessResult result = processManager.runSync(key);
+      for (final FakeInvocationRecord key in calls.keys) {
+        final ProcessResult result = processManager.runSync(key.invocation);
         expect(result.stdout, equals((calls[key] ?? <ProcessResult>[])[0].stdout));
       }
       processManager.verifyCalls(calls.keys.toList());
     });
 
     test('captures stdin', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2']): <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
-        <String>['command2', 'arg1', 'arg2']: <ProcessResult>[
+        FakeInvocationRecord(<String>['command2', 'arg1', 'arg2']): <ProcessResult>[
           ProcessResult(0, 0, 'output2', ''),
         ],
       };
       processManager.fakeResults = calls;
-      for (final List<String> key in calls.keys) {
-        final Process process = await processManager.start(key);
+      for (final FakeInvocationRecord key in calls.keys) {
+        final Process process = await processManager.start(key.invocation);
         String output = '';
         process.stdout.listen((List<int> item) {
           output += utf8.decode(item);

@@ -8,16 +8,16 @@ description: A process invocation astraction for Dart that manages a multiproces
 homepage: https://github.com/google/process_runner
 
 dependencies:
+  async: ^2.4.2
   file: ^5.0.0
   meta: ^1.1.2
   path: ^1.5.1
   platform: ^2.2.0
   process: ^3.0.13
-  async: ^2.4.2
 
 dev_dependencies:
-  test: ^1.0.0
   mockito: ^4.1.1
+  test: ^1.0.0
 
 environment:
   sdk: '>=2.3.0 <3.0.0'
