@@ -15,7 +15,7 @@ test_package.TypeMatcher<T> isInstanceOf<T>() => isA<T>();
 class FakeInvocationRecord {
   FakeInvocationRecord(this.invocation, [this.workingDirectory]);
   final List<String> invocation;
-  final String workingDirectory;
+  final String? workingDirectory;
 }
 
 /// A mock that can be used to fake a process manager that runs commands
@@ -93,19 +93,19 @@ class FakeProcessManager implements ProcessManager {
   FakeProcess _popProcess(FakeInvocationRecord command) =>
       FakeProcess(_popResult(command), stdinResults);
 
-  Future<Process> _nextProcess(List<String> invocation, String workingDirectory) async {
+  Future<Process> _nextProcess(List<String> invocation, String? workingDirectory) async {
     final FakeInvocationRecord record = FakeInvocationRecord(invocation, workingDirectory);
     invocations.add(record);
     return Future<Process>.value(_popProcess(record));
   }
 
-  ProcessResult _nextResultSync(List<String> invocation, String workingDirectory) {
+  ProcessResult _nextResultSync(List<String> invocation, String? workingDirectory) {
     final FakeInvocationRecord record = FakeInvocationRecord(invocation, workingDirectory);
     invocations.add(record);
     return _popResult(record);
   }
 
-  Future<ProcessResult> _nextResult(List<String> invocation, String workingDirectory) async {
+  Future<ProcessResult> _nextResult(List<String> invocation, String? workingDirectory) async {
     final FakeInvocationRecord record = FakeInvocationRecord(invocation, workingDirectory);
     invocations.add(record);
     return Future<ProcessResult>.value(_popResult(record));

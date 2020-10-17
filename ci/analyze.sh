@@ -17,8 +17,7 @@ REPO_DIR="$(dirname "$SCRIPT_DIR")"
 function analyze() {
   # Make sure we pass the analyzer
   echo "Checking dartanalyzer..."
-  fails_analyzer="$(find lib test ci -name "*.dart" | xargs dartanalyzer --enable-experiment=non-nullable --options analysis_options.yaml)"
-  if [[ "$fails_analyzer" == *"[error]"* ]]; then
+  if ! fails_analyzer="$(find lib test ci -name "*.dart" -print0 | xargs -0 dartanalyzer --enable-experiment=non-nullable --options analysis_options.yaml)"; then
     echo "FAILED"
     echo "$fails_analyzer"
     exit 1

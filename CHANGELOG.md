@@ -2,7 +2,7 @@
 
 ## 4.0.0-nullsafety.2
 
-* Rebase onto non-nullsafety version 3.1.0 to pick up those changes. 
+* Rebase onto non-nullsafety version 3.1.1 to pick up those changes. 
 
 ## 4.0.0-nullsafety.1
 

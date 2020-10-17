@@ -10,9 +10,9 @@ import 'package:process_runner/process_runner.dart';
 import 'fake_process_manager.dart';
 
 void main() {
-  FakeProcessManager fakeProcessManager;
-  ProcessRunner processRunner;
-  ProcessPool processPool;
+  late FakeProcessManager fakeProcessManager;
+  late ProcessRunner processRunner;
+  late ProcessPool processPool;
 
   setUp(() {
     fakeProcessManager = FakeProcessManager((String value) {});
