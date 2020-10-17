@@ -16,53 +16,60 @@ void main() {
 
   setUp(() {
     fakeProcessManager = FakeProcessManager((String value) {});
-    processRunner = ProcessRunner(processManager: fakeProcessManager);
+    processRunner = ProcessRunner(
+        processManager: fakeProcessManager, defaultWorkingDirectory: Directory('/tmp/foo'));
   });
 
   tearDown(() {});
 
   group('Ouput Capture', () {
     test('runProcess works', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
       };
       fakeProcessManager.fakeResults = calls;
-      await processRunner.runProcess(calls.keys.first);
+      await processRunner.runProcess(calls.keys.first.invocation);
       fakeProcessManager.verifyCalls(calls.keys);
     });
     test('runProcess returns correct output', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
           ProcessResult(0, 0, 'output1', 'stderr1'),
         ],
       };
       fakeProcessManager.fakeResults = calls;
-      final ProcessRunnerResult result = await processRunner.runProcess(calls.keys.first);
+      final ProcessRunnerResult result =
+          await processRunner.runProcess(calls.keys.first.invocation);
       fakeProcessManager.verifyCalls(calls.keys);
       expect(result.stdout, equals('output1'));
       expect(result.stderr, equals('stderr1'));
       expect(result.output, equals('output1stderr1'));
     });
     test('runProcess fails properly', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], ''): <ProcessResult>[
           ProcessResult(0, -1, 'output1', 'stderr1'),
         ],
       };
       fakeProcessManager.fakeResults = calls;
-      await expectLater(() => processRunner.runProcess(calls.keys.first), throwsException);
+      await expectLater(
+          () => processRunner.runProcess(calls.keys.first.invocation), throwsException);
     });
     test('runProcess returns the failed results properly', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
           ProcessResult(0, -1, 'output1', 'stderr1'),
         ],
       };
       fakeProcessManager.fakeResults = calls;
       final ProcessRunnerResult result =
-          await processRunner.runProcess(calls.keys.first, failOk: true);
+          await processRunner.runProcess(calls.keys.first.invocation, failOk: true);
       expect(result.stdout, equals('output1'));
       expect(result.stderr, equals('stderr1'));
       expect(result.output, equals('output1stderr1'));

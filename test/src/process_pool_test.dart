@@ -10,22 +10,26 @@ import 'package:process_runner/process_runner.dart';
 import 'fake_process_manager.dart';
 
 void main() {
-  FakeProcessManager fakeProcessManager = FakeProcessManager((String value) {});
-  ProcessRunner processRunner = ProcessRunner(processManager: fakeProcessManager);
-  ProcessPool processPool = ProcessPool(processRunner: processRunner);
+  FakeProcessManager fakeProcessManager;
+  ProcessRunner processRunner;
+  ProcessPool processPool;
 
   setUp(() {
     fakeProcessManager = FakeProcessManager((String value) {});
-    processRunner = ProcessRunner(processManager: fakeProcessManager);
+    processRunner = ProcessRunner(
+      processManager: fakeProcessManager,
+      defaultWorkingDirectory: Directory('/tmp/foo'),
+    );
     processPool = ProcessPool(processRunner: processRunner, printReport: null);
   });
 
   tearDown(() {});
 
-  group('Ouput Capture', () {
+  group('Output Capture', () {
     test('startWorkers works', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
       };
@@ -37,8 +41,9 @@ void main() {
       fakeProcessManager.verifyCalls(calls.keys);
     });
     test('runToCompletion works', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
       };
@@ -50,8 +55,9 @@ void main() {
       fakeProcessManager.verifyCalls(calls.keys);
     });
     test('failed tests report results', () async {
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
           ProcessResult(0, -1, 'output1', 'stderr1'),
         ],
       };
@@ -69,8 +75,9 @@ void main() {
       fakeProcessManager = FakeProcessManager((String value) {}, commandsThrow: true);
       processRunner = ProcessRunner(processManager: fakeProcessManager);
       processPool = ProcessPool(processRunner: processRunner, printReport: null);
-      final Map<List<String>, List<ProcessResult>> calls = <List<String>, List<ProcessResult>>{
-        <String>['command', 'arg1', 'arg2']: <ProcessResult>[
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
           ProcessResult(0, -1, 'output1', 'stderr1'),
         ],
       };
