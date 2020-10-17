@@ -1,5 +1,12 @@
 # Change Log for `process_runner`
 
+## 3.1.1
+
+* Reverted part of the migrated null safety changes, as defaulting to the
+  current directory for WorkerJobs inadvertently changes behavior.
+* Updated the testing harness to also check for working directory in
+  invocations.
+
 ## 3.1.0
 
 * Add `exception` to the `WorkerJob` so that when commands fail to run, the
