@@ -2,7 +2,7 @@
 
 ## 4.0.0-nullsafety.2
 
-* Rebase onto non-nullsafety version 3.1.0 to pick up those changes. 
+* Rebase onto non-nullsafety version 3.1.1 to pick up those changes. 
 
 ## 4.0.0-nullsafety.1
 
@@ -11,6 +11,13 @@
 ## 4.0.0-nullsafety
 
 * Convert to non-nullable by default, enable null-safety experiment for Dart.
+
+## 3.1.1
+
+* Reverted part of the migrated null safety changes, as defaulting to the
+  current directory for WorkerJobs inadvertently changes behavior.
+* Updated the testing harness to also check for working directory in
+  invocations.
 
 ## 3.1.0
 
