@@ -1,5 +1,9 @@
 # Change Log for `process_runner`
 
+## 4.0.0-nullsafety.5
+
+* Expand the sdk constraint to `>=2.12.0-0 <3.0.0`.
+
 ## 4.0.0-nullsafety.4
 
 * Expand the sdk constraint to `<2.12.0`.
