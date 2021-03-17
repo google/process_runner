@@ -66,10 +66,10 @@ void main() {
         WorkerJob(<String>['command', 'arg1', 'arg2'], name: 'job 1'),
       ];
       final List<WorkerJob> completed = await processPool.runToCompletion(jobs);
-      expect(completed.first.result?.exitCode, equals(-1));
-      expect(completed.first.result?.stdout, equals('output1'));
-      expect(completed.first.result?.stderr, equals('stderr1'));
-      expect(completed.first.result?.output, equals('output1stderr1'));
+      expect(completed.first.result.exitCode, equals(-1));
+      expect(completed.first.result.stdout, equals('output1'));
+      expect(completed.first.result.stderr, equals('stderr1'));
+      expect(completed.first.result.output, equals('output1stderr1'));
     });
     test('Commands the throw exceptions report results', () async {
       fakeProcessManager = FakeProcessManager((String value) {}, commandsThrow: true);
@@ -86,7 +86,7 @@ void main() {
         WorkerJob(<String>['command', 'arg1', 'arg2'], name: 'job 1'),
       ];
       final List<WorkerJob> completed = await processPool.runToCompletion(jobs);
-      expect(completed.first.result, isNull);
+      expect(completed.first.result, equals(ProcessRunnerResult.failed));
       expect(completed.first.exception, isNotNull);
     });
   });

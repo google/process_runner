@@ -64,12 +64,15 @@ class WorkerJob {
   /// Once the job is complete, this contains the result of the job.
   ///
   /// The [stderr], [stdout], and [output] accessors will decode their raw
-  /// equivalents using the [ProcessRuner.decoder] that is set on the process
+  /// equivalents using the [ProcessRunner.decoder] that is set on the process
   /// runner for the pool that ran this job.
   ///
   /// If no process runner is supplied to the pool, then the decoder will be the
   /// same as the [ProcessPool.encoding] that was set on the pool.
-  ProcessRunnerResult? result;
+  ///
+  /// The initial value of this field is [ProcessRunnerResult.emptySuccess],
+  /// and is updated when the job is complete.
+  ProcessRunnerResult result = ProcessRunnerResult.emptySuccess;
 
   /// Once the job is complete, if it had an exception while running, this
   /// member contains the exception.
@@ -120,8 +123,6 @@ class ProcessPool {
   /// Setting this allows for configuration of the process runnner.
   ///
   /// Be default, a default-constructed [ProcessRunner] is used.
-  ///
-  /// Must not be null.
   final ProcessRunner processRunner;
 
   /// The number of workers to use for this pool.
@@ -180,7 +181,6 @@ class ProcessPool {
 
   Future<WorkerJob> _performJob(WorkerJob job) async {
     try {
-      job.result = null;
       job.result = await processRunner.runProcess(
         job.command,
         workingDirectory: job.workingDirectory ?? processRunner.defaultWorkingDirectory,
@@ -193,7 +193,7 @@ class ProcessPool {
       if (!job.failOk) {
         stderr.writeln('\nJob $job failed: $e');
       }
-      job.result = e.result;
+      job.result = e.result ?? ProcessRunnerResult.failed;
       job.exception = e;
       _failedJobs.add(job);
     } finally {

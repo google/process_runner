@@ -48,7 +48,7 @@ class ProcessRunnerException implements Exception {
 class ProcessRunnerResult {
   /// Creates a new [ProcessRunnerResult], usually created by a [ProcessRunner].
   ///
-  /// All of the arguments must not be null.
+  /// If [decoder] is not supplied, it defaults to [SystemEncoding].
   ProcessRunnerResult(
     this.exitCode,
     this.stdoutRaw,
@@ -104,6 +104,12 @@ class ProcessRunnerResult {
   }
 
   String? _output;
+
+  /// A constant to use if there is no result data available, but the process failed.
+  static final ProcessRunnerResult failed = ProcessRunnerResult(-1, <int>[], <int>[], <int>[]);
+
+  /// A constant to use if there is no result data available, but the process succeeded.
+  static final ProcessRunnerResult emptySuccess = ProcessRunnerResult(0, <int>[], <int>[], <int>[]);
 }
 
 /// A helper class for classes that want to run a process, optionally have the

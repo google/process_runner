@@ -22,7 +22,7 @@ void main() {
 
   tearDown(() {});
 
-  group('Ouput Capture', () {
+  group('Output Capture', () {
     test('runProcess works', () async {
       final Map<FakeInvocationRecord, List<ProcessResult>> calls =
           <FakeInvocationRecord, List<ProcessResult>>{

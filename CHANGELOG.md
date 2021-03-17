@@ -1,5 +1,10 @@
 # Change Log for `process_runner`
 
+## 4.0.0
+
+* Convert dependencies to stable versions of the now null-safe packages.
+* Modified `WorkerJob.result` to be non-nullable, and initialized with an empty result.
+
 ## 4.0.0-nullsafety.4
 
 * Expand the sdk constraint to `<2.12.0`.

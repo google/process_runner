@@ -9,8 +9,6 @@
 // of single-threaded CPU-intensive commands by a multple of the number of
 // processor cores you have (modulo being disk/network bound, of course).
 
-// @dart = 2.10
-
 import 'dart:io';
 
 import 'package:process_runner/process_runner.dart';
@@ -167,6 +165,6 @@ Future<void> main(List<String> args) async {
     if (printReport) {
       print('\nFinished job ${done.name}');
     }
-    stdout.write(done.result!.stdout);
+    stdout.write(done.result.stdout);
   }
 }
