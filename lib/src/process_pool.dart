@@ -17,15 +17,13 @@ import 'process_runner.dart';
 class WorkerJob {
   WorkerJob(
     this.command, {
-    String name,
+    String? name,
     this.workingDirectory,
     this.printOutput = false,
     this.stdin,
     this.stdinRaw,
     this.failOk = true,
-  })  : assert(failOk != null),
-        assert(printOutput != null),
-        name = name ?? command.join(' ');
+  }) : name = name ?? command.join(' ');
 
   /// The name of the job.
   ///
@@ -37,7 +35,7 @@ class WorkerJob {
   final List<String> command;
 
   /// The working directory that the command should be executed in.
-  final Directory workingDirectory;
+  final Directory? workingDirectory;
 
   /// If set, the stream to read the stdin for this process from.
   ///
@@ -45,14 +43,14 @@ class WorkerJob {
   /// the process.
   ///
   /// If both [stdin] and [stdinRaw] are set, only [stdinRaw] will be used.
-  final Stream<String> stdin;
+  final Stream<String>? stdin;
 
   /// If set, the stream to read the raw stdin for this process from.
   ///
   /// It will be used directly, and not encoded (as [stdin] would be).
   ///
   /// If both [stdin] and [stdinRaw] are set, only [stdinRaw] will be used.
-  final Stream<List<int>> stdinRaw;
+  final Stream<List<int>>? stdinRaw;
 
   /// Whether or not this command should print it's stdout when it runs.
   final bool printOutput;
@@ -66,16 +64,19 @@ class WorkerJob {
   /// Once the job is complete, this contains the result of the job.
   ///
   /// The [stderr], [stdout], and [output] accessors will decode their raw
-  /// equivalents using the [ProcessRuner.decoder] that is set on the process
+  /// equivalents using the [ProcessRunner.decoder] that is set on the process
   /// runner for the pool that ran this job.
   ///
   /// If no process runner is supplied to the pool, then the decoder will be the
   /// same as the [ProcessPool.encoding] that was set on the pool.
-  ProcessRunnerResult result;
+  ///
+  /// The initial value of this field is [ProcessRunnerResult.emptySuccess],
+  /// and is updated when the job is complete.
+  ProcessRunnerResult result = ProcessRunnerResult.emptySuccess;
 
   /// Once the job is complete, if it had an exception while running, this
   /// member contains the exception.
-  Exception exception;
+  Exception? exception;
 
   @override
   String toString() {
@@ -96,8 +97,8 @@ typedef ProcessPoolProgressReporter = void Function(
 /// (presumably single-threaded) processes are finished.
 class ProcessPool {
   ProcessPool({
-    int numWorkers,
-    ProcessRunner processRunner,
+    int? numWorkers,
+    ProcessRunner? processRunner,
     this.printReport = defaultPrintReport,
     this.encoding = const SystemEncoding(),
   })  : processRunner = processRunner ?? ProcessRunner(decoder: encoding),
@@ -109,7 +110,7 @@ class ProcessPool {
   ///
   /// Defaults to [defaultProgressReport], which prints the progress report to
   /// stdout.
-  final ProcessPoolProgressReporter printReport;
+  final ProcessPoolProgressReporter? printReport;
 
   /// The decoder to use for decoding the stdout, stderr, and output of a
   /// process, and encoding the stdin from the job.
@@ -122,8 +123,6 @@ class ProcessPool {
   /// Setting this allows for configuration of the process runnner.
   ///
   /// Be default, a default-constructed [ProcessRunner] is used.
-  ///
-  /// Must not be null.
   final ProcessRunner processRunner;
 
   /// The number of workers to use for this pool.
@@ -182,7 +181,6 @@ class ProcessPool {
 
   Future<WorkerJob> _performJob(WorkerJob job) async {
     try {
-      job.result = null;
       job.result = await processRunner.runProcess(
         job.command,
         workingDirectory: job.workingDirectory ?? processRunner.defaultWorkingDirectory,
@@ -195,7 +193,7 @@ class ProcessPool {
       if (!job.failOk) {
         stderr.writeln('\nJob $job failed: $e');
       }
-      job.result = e.result;
+      job.result = e.result ?? ProcessRunnerResult.failed;
       job.exception = e;
       _failedJobs.add(job);
     } finally {

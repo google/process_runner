@@ -10,9 +10,9 @@ import 'package:process_runner/process_runner.dart';
 import 'fake_process_manager.dart';
 
 void main() {
-  FakeProcessManager fakeProcessManager;
-  ProcessRunner processRunner;
-  ProcessPool processPool;
+  late FakeProcessManager fakeProcessManager;
+  late ProcessRunner processRunner;
+  late ProcessPool processPool;
 
   setUp(() {
     fakeProcessManager = FakeProcessManager((String value) {});
@@ -86,7 +86,7 @@ void main() {
         WorkerJob(<String>['command', 'arg1', 'arg2'], name: 'job 1'),
       ];
       final List<WorkerJob> completed = await processPool.runToCompletion(jobs);
-      expect(completed.first.result, isNull);
+      expect(completed.first.result, equals(ProcessRunnerResult.failed));
       expect(completed.first.exception, isNotNull);
     });
   });

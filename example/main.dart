@@ -89,7 +89,7 @@ main.dart [flags]
 ''';
 }
 
-String findOption(String option, List<String> args) {
+String? findOption(String option, List<String> args) {
   for (int i = 0; i < args.length - 1; ++i) {
     if (args[i] == option) {
       return args[i + 1];
@@ -117,7 +117,7 @@ Future<void> main(List<String> args) async {
   final bool printReport = args.contains('--report');
   // If the numWorkers is set to null, then the ProcessPool will automatically
   // select the number of processes based on how many CPU cores the machine has.
-  final int numWorkers = int.tryParse(findOption('workers', args) ?? '');
+  final int? numWorkers = int.tryParse(findOption('workers', args) ?? '');
   final Directory workingDirectory = Directory(findOption('workingDirectory', args) ?? '.');
   final List<String> cmds = findAllOptions('cmd', args).toList();
 
@@ -126,7 +126,7 @@ Future<void> main(List<String> args) async {
   List<String> fileCommands = <String>[];
   // Read from stdin if the --file option is set to '-'.
   if (commandFile == '-') {
-    String line = stdin.readLineSync();
+    String? line = stdin.readLineSync();
     while (line != null) {
       fileCommands.add(line);
       line = stdin.readLineSync();

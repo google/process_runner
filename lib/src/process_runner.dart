@@ -19,7 +19,7 @@ class ProcessRunnerException implements Exception {
   ProcessRunnerException(this.message, {this.result});
 
   final String message;
-  final ProcessRunnerResult result;
+  final ProcessRunnerResult? result;
 
   int get exitCode => result?.exitCode ?? -1;
 
@@ -48,7 +48,7 @@ class ProcessRunnerException implements Exception {
 class ProcessRunnerResult {
   /// Creates a new [ProcessRunnerResult], usually created by a [ProcessRunner].
   ///
-  /// All of the arguments must not be null.
+  /// If [decoder] is not supplied, it defaults to [SystemEncoding].
   ProcessRunnerResult(
     this.exitCode,
     this.stdoutRaw,
@@ -80,19 +80,19 @@ class ProcessRunnerResult {
   /// [decoder].
   String get stdout {
     _stdout ??= decoder.decode(stdoutRaw);
-    return _stdout;
+    return _stdout!;
   }
 
-  String _stdout;
+  String? _stdout;
 
   /// Returns a lazily-decoded version of the data in [stderrRaw], decoded using
   /// [decoder].
   String get stderr {
     _stderr ??= decoder.decode(stderrRaw);
-    return _stderr;
+    return _stderr!;
   }
 
-  String _stderr;
+  String? _stderr;
 
   /// Returns a lazily-decoded version of the data in [outputRaw], decoded using
   /// [decoder].
@@ -100,10 +100,16 @@ class ProcessRunnerResult {
   /// Information appears in the order supplied by the process.
   String get output {
     _output ??= decoder.decode(outputRaw);
-    return _output;
+    return _output!;
   }
 
-  String _output;
+  String? _output;
+
+  /// A constant to use if there is no result data available, but the process failed.
+  static final ProcessRunnerResult failed = ProcessRunnerResult(-1, <int>[], <int>[], <int>[]);
+
+  /// A constant to use if there is no result data available, but the process succeeded.
+  static final ProcessRunnerResult emptySuccess = ProcessRunnerResult(0, <int>[], <int>[], <int>[]);
 }
 
 /// A helper class for classes that want to run a process, optionally have the
@@ -111,9 +117,9 @@ class ProcessRunnerResult {
 /// the stdout, stderr, and interleaved output properly without dropping any.
 class ProcessRunner {
   ProcessRunner({
-    Directory defaultWorkingDirectory,
+    Directory? defaultWorkingDirectory,
     this.processManager = const LocalProcessManager(),
-    Map<String, String> environment,
+    Map<String, String>? environment,
     this.includeParentEnvironment = true,
     this.printOutputDefault = false,
     this.decoder = const SystemEncoding(),
@@ -176,10 +182,10 @@ class ProcessRunner {
   /// The `printOutput` argument defaults to the value of [printOutputDefault].
   Future<ProcessRunnerResult> runProcess(
     List<String> commandLine, {
-    Directory workingDirectory,
-    bool printOutput,
+    Directory? workingDirectory,
+    bool? printOutput,
     bool failOk = false,
-    Stream<List<int>> stdin,
+    Stream<List<int>>? stdin,
   }) async {
     workingDirectory ??= defaultWorkingDirectory;
     printOutput ??= printOutputDefault;
@@ -193,15 +199,15 @@ class ProcessRunner {
     final Completer<void> stderrComplete = Completer<void>();
     final Completer<void> stdinComplete = Completer<void>();
 
-    Process process;
+    late Process process;
     Future<int> allComplete() async {
       if (stdin != null) {
         await stdinComplete.future;
-        await process?.stdin?.close();
+        await process.stdin.close();
       }
       await stderrComplete.future;
       await stdoutComplete.future;
-      return process?.exitCode ?? Future<int>.value(0);
+      return process.exitCode;
     }
 
     try {
@@ -213,14 +219,14 @@ class ProcessRunner {
       );
       if (stdin != null) {
         stdin.listen((List<int> data) {
-          process?.stdin?.add(data);
+          process.stdin.add(data);
         }, onDone: () async => stdinComplete.complete());
       }
       process.stdout.listen(
         (List<int> event) {
           stdoutOutput.addAll(event);
           combinedOutput.addAll(event);
-          if (printOutput) {
+          if (printOutput!) {
             stdout.add(event);
           }
         },
@@ -230,7 +236,7 @@ class ProcessRunner {
         (List<int> event) {
           stderrOutput.addAll(event);
           combinedOutput.addAll(event);
-          if (printOutput) {
+          if (printOutput!) {
             stderr.add(event);
           }
         },

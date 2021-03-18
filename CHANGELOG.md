@@ -1,5 +1,30 @@
 # Change Log for `process_runner`
 
+## 4.0.0
+
+* Convert dependencies to stable versions of the now null-safe packages.
+* Modified `WorkerJob.result` to be non-nullable, and initialized with an empty result.
+
+## 4.0.0-nullsafety.4
+
+* Expand the sdk constraint to `<2.12.0`.
+
+## 4.0.0-nullsafety.3
+
+* Rebase onto non-nullsafety version 3.1.1 to pick up those changes. 
+
+## 4.0.0-nullsafety.2
+
+* Rebase onto non-nullsafety version 3.1.0 to pick up those changes. 
+
+## 4.0.0-nullsafety.1
+
+* Expand the sdk constraint to `<2.11.0`.
+
+## 4.0.0-nullsafety
+
+* Convert to non-nullable by default, enable null-safety experiment for Dart.
+
 ## 3.1.1
 
 * Reverted part of the migrated null safety changes, as defaulting to the
