@@ -9,7 +9,6 @@ import 'package:process_runner/process_runner.dart';
 
 import 'fake_process_manager.dart';
 
-// TODO(gspencergoog): Implement tests.
 void main() {
   FakeProcessManager fakeProcessManager = FakeProcessManager((String value) {});
   ProcessRunner processRunner = ProcessRunner(processManager: fakeProcessManager);

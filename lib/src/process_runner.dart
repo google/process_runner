@@ -5,7 +5,7 @@
 import 'dart:async' show Completer;
 import 'dart:convert' show Encoding;
 import 'dart:io'
-    show Process, ProcessException, Directory, stderr, stdout, SystemEncoding
+    show Process, ProcessStartMode, ProcessException, Directory, stderr, stdout, SystemEncoding
     hide Platform;
 
 import 'package:platform/platform.dart' show Platform, LocalPlatform;
@@ -35,7 +35,7 @@ class ProcessRunnerException implements Exception {
   }
 }
 
-/// This is the result of running a comand using [ProcessRunner] or
+/// This is the result of running a command using [ProcessRunner] or
 /// [ProcessPool].  It includes the entire stderr, stdout, and interleaved
 /// output from the command after it has completed.
 ///
@@ -55,6 +55,7 @@ class ProcessRunnerResult {
     this.stderrRaw,
     this.outputRaw, {
     this.decoder = const SystemEncoding(),
+    this.pid,
   });
 
   /// Contains the exit code from the completed process.
@@ -72,9 +73,18 @@ class ProcessRunnerResult {
   /// Information appears in the order supplied by the process.
   final List<int> outputRaw;
 
-  /// The encoder to use in [stdout], [stderr], and [output] accessors to decode
+  /// The optional encoder to use in [stdout], [stderr], and [output] accessors to decode
   /// the raw data.
+  ///
+  /// Defaults to using [SystemEncoding].
   final Encoding decoder;
+
+  /// The optional PID of the invoked process.
+  ///
+  /// This will only be populated when [ProcessStartMode.detached] or
+  /// [ProcessStartMode.detachedWithStdio] are specified as the start mode given
+  /// to [ProcessRunner.runProcess].
+  final int? pid;
 
   /// Returns a lazily-decoded version of the data in [stdoutRaw], decoded using
   /// [decoder].
@@ -186,6 +196,8 @@ class ProcessRunner {
     bool? printOutput,
     bool failOk = false,
     Stream<List<int>>? stdin,
+    bool runInShell = false,
+    ProcessStartMode startMode = ProcessStartMode.normal,
   }) async {
     workingDirectory ??= defaultWorkingDirectory;
     printOutput ??= printOutputDefault;
@@ -207,7 +219,7 @@ class ProcessRunner {
       }
       await stderrComplete.future;
       await stdoutComplete.future;
-      return process.exitCode;
+      return startMode == ProcessStartMode.normal ? process.exitCode : Future<int>.value(0);
     }
 
     try {
@@ -215,33 +227,41 @@ class ProcessRunner {
         commandLine,
         workingDirectory: workingDirectory.absolute.path,
         environment: environment,
-        runInShell: false,
+        runInShell: runInShell,
+        mode: startMode,
       );
-      if (stdin != null) {
-        stdin.listen((List<int> data) {
-          process.stdin.add(data);
-        }, onDone: () async => stdinComplete.complete());
+      if (startMode == ProcessStartMode.normal || startMode == ProcessStartMode.detachedWithStdio) {
+        if (stdin != null) {
+          stdin.listen((List<int> data) {
+            process.stdin.add(data);
+          }, onDone: () async => stdinComplete.complete());
+        }
+        process.stdout.listen(
+          (List<int> event) {
+            stdoutOutput.addAll(event);
+            combinedOutput.addAll(event);
+            if (printOutput!) {
+              stdout.add(event);
+            }
+          },
+          onDone: () async => stdoutComplete.complete(),
+        );
+        process.stderr.listen(
+          (List<int> event) {
+            stderrOutput.addAll(event);
+            combinedOutput.addAll(event);
+            if (printOutput!) {
+              stderr.add(event);
+            }
+          },
+          onDone: () async => stderrComplete.complete(),
+        );
+      } else {
+        // For "detached", we can't wait for anything to complete.
+        stdinComplete.complete();
+        stdoutComplete.complete();
+        stderrComplete.complete();
       }
-      process.stdout.listen(
-        (List<int> event) {
-          stdoutOutput.addAll(event);
-          combinedOutput.addAll(event);
-          if (printOutput!) {
-            stdout.add(event);
-          }
-        },
-        onDone: () async => stdoutComplete.complete(),
-      );
-      process.stderr.listen(
-        (List<int> event) {
-          stderrOutput.addAll(event);
-          combinedOutput.addAll(event);
-          if (printOutput!) {
-            stderr.add(event);
-          }
-        },
-        onDone: () async => stderrComplete.complete(),
-      );
     } on ProcessException catch (e) {
       final String message = 'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
           'failed with:\n${e.toString()}';
@@ -263,6 +283,7 @@ class ProcessRunner {
           stdoutOutput,
           stderrOutput,
           combinedOutput,
+          pid: process.pid,
           decoder: decoder,
         ),
       );
@@ -272,6 +293,7 @@ class ProcessRunner {
       stdoutOutput,
       stderrOutput,
       combinedOutput,
+      pid: process.pid,
       decoder: decoder,
     );
   }

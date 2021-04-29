@@ -12,6 +12,7 @@
 import 'dart:io';
 
 import 'package:process_runner/process_runner.dart';
+import 'package:args/args.dart';
 
 // This only works for escaped spaces and things in double or single quotes.
 // This is just an example, modify to meet your own requirements.
@@ -75,20 +76,6 @@ List<String> splitIntoArgs(String args) {
   return result;
 }
 
-String usage() {
-  return '''
-main.dart [flags]
-    --[no-]help           Print help.
-    --[no-]report         Print progress on the jobs while running.
--w, --workers             Specify the number of workers jobs to run simultanously. Defaults to the number of processors on the machine.
--d, --workingDirectory    Specify the working directory to run on
-                          (defaults to ".")
--c, --cmd                 Specify a command to add to the commands to be run. Entire command must be quoted by the shell. Commands specified with this option run before those specified with --cmdFile
--f, --file                Specify the name of a file to read commands from, one per line, as they would appear on the command line, with spaces escaped or quoted. Specify "-" to read from stdin.
-                          (defaults to "-")
-''';
-}
-
 String? findOption(String option, List<String> args) {
   for (int i = 0; i < args.length - 1; ++i) {
     if (args[i] == option) {
@@ -107,38 +94,55 @@ Iterable<String> findAllOptions(String option, List<String> args) sync* {
 }
 
 Future<void> main(List<String> args) async {
-  // Parse args without ArgParser until ArgParser is null-safe.
-  if (args.contains('--help')) {
+  final ArgParser parser = ArgParser();
+  parser.addFlag('help', help: 'Print help.');
+  parser.addFlag('report', help: 'Print progress on the jobs while running.', defaultsTo: false);
+  parser.addFlag('run-in-shell', help: 'Run the commands in a subshell.', defaultsTo: false);
+  parser.addOption('workers',
+      abbr: 'w',
+      help: 'Specify the number of workers jobs to run simultanously. Defaults '
+          'to the number of processors on the machine.');
+  parser.addOption('workingDirectory',
+      abbr: 'd', help: 'Specify the working directory to run on', defaultsTo: '.');
+  parser.addMultiOption('cmd',
+      abbr: 'c',
+      help: 'Specify a command to add to the commands to be run. Entire '
+          'command must be quoted by the shell. Commands specified with this '
+          'option run before those specified with --cmdFile');
+  parser.addOption('file',
+      abbr: 'f',
+      help: 'Specify the name of a file to read commands from, one per line, as '
+          'they would appear on the command line, with spaces escaped or '
+          'quoted. Specify "-" to read from stdin.',
+      defaultsTo: '-');
+  final ArgResults options = parser.parse(args);
+
+  if (options['help'] as bool) {
     print('main.dart [flags]');
-    print(usage());
+    print(parser.usage);
     exit(0);
   }
 
-  final bool printReport = args.contains('--report');
-  // If the numWorkers is set to null, then the ProcessPool will automatically
-  // select the number of processes based on how many CPU cores the machine has.
-  final int? numWorkers = int.tryParse(findOption('workers', args) ?? '');
-  final Directory workingDirectory = Directory(findOption('workingDirectory', args) ?? '.');
-  final List<String> cmds = findAllOptions('cmd', args).toList();
-
   // Collect the commands to be run from the command file.
-  final String commandFile = findOption('file', args) ?? '-';
+  final String? commandFile = options['file'] as String?;
   List<String> fileCommands = <String>[];
-  // Read from stdin if the --file option is set to '-'.
-  if (commandFile == '-') {
-    String? line = stdin.readLineSync();
-    while (line != null) {
-      fileCommands.add(line);
-      line = stdin.readLineSync();
+  if (commandFile != null) {
+    // Read from stdin if the --file option is set to '-'.
+    if (commandFile == '-') {
+      String? line = stdin.readLineSync();
+      while (line != null) {
+        fileCommands.add(line);
+        line = stdin.readLineSync();
+      }
+    } else {
+      // Read the commands from a file.
+      final File cmdFile = File(commandFile);
+      if (!cmdFile.existsSync()) {
+        print('Command file "$commandFile" doesn\'t exist.');
+        exit(1);
+      }
+      fileCommands = cmdFile.readAsLinesSync();
     }
-  } else {
-    // Read the commands from a file.
-    final File cmdFile = File(commandFile);
-    if (!cmdFile.existsSync()) {
-      print('Command file "$commandFile" doesn\'t exist.');
-      exit(1);
-    }
-    fileCommands = cmdFile.readAsLinesSync();
   }
 
   // Collect all the commands, both from the input file, and from the command
@@ -146,7 +150,7 @@ Future<void> main(List<String> args) async {
   // executed simultaneously, depending on the number of workers, and number of
   // commands).
   final List<String> commands = <String>[
-    ...cmds,
+    if (options['cmd'] != null) ...options['cmd']! as List<String>,
     ...fileCommands,
   ];
 
@@ -154,12 +158,23 @@ Future<void> main(List<String> args) async {
   // simple quoting and escaping.
   final List<List<String>> splitCommands = commands.map<List<String>>(splitIntoArgs).toList();
 
+  // If the numWorkers is set to null, then the ProcessPool will automatically
+  // select the number of processes based on how many CPU cores the machine has.
+  final int? numWorkers = int.tryParse(options['workers'] as String? ?? '');
+  final bool printReport = options['report']! as bool? ?? false;
+  final Directory workingDirectory = Directory((options['workingDirectory'] as String?) ?? '.');
+  final bool runInShell = options['run-in-shell'] as bool? ?? false;
+
   final ProcessPool pool = ProcessPool(
     numWorkers: numWorkers,
     printReport: printReport ? ProcessPool.defaultPrintReport : null,
   );
   final List<WorkerJob> jobs = splitCommands.map<WorkerJob>((List<String> command) {
-    return WorkerJob(command, workingDirectory: workingDirectory);
+    return WorkerJob(
+      command,
+      workingDirectory: workingDirectory,
+      runInShell: runInShell,
+    );
   }).toList();
   await for (final WorkerJob done in pool.startWorkers(jobs)) {
     if (printReport) {
