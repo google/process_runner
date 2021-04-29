@@ -1,5 +1,11 @@
 # Change Log for `process_runner`
 
+## 4.0.1
+
+* Add startMode to allow passing of a ProcessStartMode to
+  ProcessRunner.runProcess, added live tests, and brought back `args` package for the
+  example, now that `args` is null safe.
+
 ## 4.0.0
 
 * Convert dependencies to stable versions of the now null-safe packages.

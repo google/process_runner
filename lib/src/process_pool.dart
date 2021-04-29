@@ -4,7 +4,7 @@
 
 import 'dart:async';
 import 'dart:convert' show Encoding;
-import 'dart:io' show Directory, Platform, stdout, SystemEncoding, stderr;
+import 'dart:io' show Directory, Platform, stdout, SystemEncoding, stderr, ProcessStartMode;
 
 import 'package:async/async.dart' show StreamGroup;
 
@@ -23,6 +23,7 @@ class WorkerJob {
     this.stdin,
     this.stdinRaw,
     this.failOk = true,
+    this.runInShell = false,
   }) : name = name ?? command.join(' ');
 
   /// The name of the job.
@@ -60,6 +61,14 @@ class WorkerJob {
   ///
   /// Defaults to true, since the [result] will contain the exit code.
   final bool failOk;
+
+  /// If set to true, the process will run in a shell.
+  ///
+  /// Running in a shell is generally not recommended, as it provides worse
+  /// performance, and some security risk, but is sometimes necessary.
+  ///
+  /// Defaults to false.
+  final bool runInShell;
 
   /// Once the job is complete, this contains the result of the job.
   ///
@@ -186,6 +195,11 @@ class ProcessPool {
         workingDirectory: job.workingDirectory ?? processRunner.defaultWorkingDirectory,
         printOutput: job.printOutput,
         stdin: job.stdinRaw ?? encoding.encoder.bind(job.stdin ?? const Stream<String>.empty()),
+        // Starting process pool jobs in any other mode makes no sense: they
+        // would all just be immediately started and bring the machine to its
+        // knees.
+        startMode: ProcessStartMode.normal,
+        runInShell: job.runInShell,
         failOk: false, // Must be false so that we can catch the exception below.
       );
       _completedJobs.add(job);
