@@ -12,11 +12,12 @@ import 'fake_process_manager.dart';
 void main() {
   FakeProcessManager fakeProcessManager = FakeProcessManager((String value) {});
   ProcessRunner processRunner = ProcessRunner(processManager: fakeProcessManager);
+  final String testPath = Platform.isWindows ? r'C:\tmp\foo' : '/tmp/foo';
 
   setUp(() {
     fakeProcessManager = FakeProcessManager((String value) {});
     processRunner = ProcessRunner(
-        processManager: fakeProcessManager, defaultWorkingDirectory: Directory('/tmp/foo'));
+        processManager: fakeProcessManager, defaultWorkingDirectory: Directory(testPath));
   });
 
   tearDown(() {});
@@ -25,7 +26,7 @@ void main() {
     test('runProcess works', () async {
       final Map<FakeInvocationRecord, List<ProcessResult>> calls =
           <FakeInvocationRecord, List<ProcessResult>>{
-        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
       };
@@ -36,7 +37,7 @@ void main() {
     test('runProcess returns correct output', () async {
       final Map<FakeInvocationRecord, List<ProcessResult>> calls =
           <FakeInvocationRecord, List<ProcessResult>>{
-        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
           ProcessResult(0, 0, 'output1', 'stderr1'),
         ],
       };
@@ -62,7 +63,7 @@ void main() {
     test('runProcess returns the failed results properly', () async {
       final Map<FakeInvocationRecord, List<ProcessResult>> calls =
           <FakeInvocationRecord, List<ProcessResult>>{
-        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
           ProcessResult(0, -1, 'output1', 'stderr1'),
         ],
       };
