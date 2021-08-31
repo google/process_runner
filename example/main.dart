@@ -11,8 +11,8 @@
 
 import 'dart:io';
 
-import 'package:process_runner/process_runner.dart';
 import 'package:args/args.dart';
+import 'package:process_runner/process_runner.dart';
 
 // This only works for escaped spaces and things in double or single quotes.
 // This is just an example, modify to meet your own requirements.

@@ -9,8 +9,8 @@
 import 'dart:io';
 
 import 'package:process/process.dart';
-import 'package:test/test.dart';
 import 'package:process_runner/process_runner.dart';
+import 'package:test/test.dart';
 
 void main() {
   if (!Platform.isLinux && !Platform.isMacOS) {
