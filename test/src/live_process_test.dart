@@ -15,7 +15,7 @@ import 'package:test/test.dart';
 void main() {
   if (!Platform.isLinux && !Platform.isMacOS) {
     print('Test only available on linux and macOS');
-    exit(-1);
+    return;
   }
 
   late Directory tmpdir;
@@ -49,7 +49,7 @@ void main() {
       final ProcessRunnerResult result =
           await processRunner.runProcess(<String>['cat', '--flutter'], failOk: true);
       expect(result.exitCode, isNot(equals(0)));
-      expect(result.stderr, contains('unrecognized option'));
+      expect(result.stderr, contains(RegExp(r'(unrecognized|illegal) option')));
     });
     test('runProcess captures detachedWithStdio stdout', () async {
       final ProcessRunnerResult result = await processRunner.runProcess(
@@ -63,7 +63,7 @@ void main() {
           <String>['cat', '--flutter'],
           failOk: true, startMode: ProcessStartMode.detachedWithStdio);
       expect(result.exitCode, equals(0)); // failed detached processes don't report an exit code.
-      expect(result.stderr, contains('unrecognized option'));
+      expect(result.stderr, contains(RegExp(r'(unrecognized|illegal) option')));
     });
     test('runProcess captures nothing with detached process', () async {
       final ProcessRunnerResult result = await processRunner

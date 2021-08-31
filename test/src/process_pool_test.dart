@@ -13,12 +13,13 @@ void main() {
   late FakeProcessManager fakeProcessManager;
   late ProcessRunner processRunner;
   late ProcessPool processPool;
+  final String testPath = Platform.isWindows ? r'C:\tmp\foo' : '/tmp/foo';
 
   setUp(() {
     fakeProcessManager = FakeProcessManager((String value) {});
     processRunner = ProcessRunner(
       processManager: fakeProcessManager,
-      defaultWorkingDirectory: Directory('/tmp/foo'),
+      defaultWorkingDirectory: Directory(testPath),
     );
     processPool = ProcessPool(processRunner: processRunner, printReport: null);
   });
@@ -29,7 +30,7 @@ void main() {
     test('startWorkers works', () async {
       final Map<FakeInvocationRecord, List<ProcessResult>> calls =
           <FakeInvocationRecord, List<ProcessResult>>{
-        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
       };
@@ -43,7 +44,7 @@ void main() {
     test('runToCompletion works', () async {
       final Map<FakeInvocationRecord, List<ProcessResult>> calls =
           <FakeInvocationRecord, List<ProcessResult>>{
-        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
           ProcessResult(0, 0, 'output1', ''),
         ],
       };
@@ -57,7 +58,7 @@ void main() {
     test('failed tests report results', () async {
       final Map<FakeInvocationRecord, List<ProcessResult>> calls =
           <FakeInvocationRecord, List<ProcessResult>>{
-        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
           ProcessResult(0, -1, 'output1', 'stderr1'),
         ],
       };
@@ -77,7 +78,7 @@ void main() {
       processPool = ProcessPool(processRunner: processRunner, printReport: null);
       final Map<FakeInvocationRecord, List<ProcessResult>> calls =
           <FakeInvocationRecord, List<ProcessResult>>{
-        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], '/tmp/foo'): <ProcessResult>[
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
           ProcessResult(0, -1, 'output1', 'stderr1'),
         ],
       };
