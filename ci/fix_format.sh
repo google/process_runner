@@ -17,19 +17,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
 function format() {
-  dartfmt_dirs=(lib test ci example)
-  (cd "$REPO_DIR" && dartfmt --line-length=100 "$@" ${dartfmt_dirs[@]})
+  (cd "$REPO_DIR" && dart format --set-exit-if-changed --line-length=100 "$@" lib test ci example)
 }
 
 # Make sure dartfmt is run on everything
 function check_format() {
-  echo "Checking dartfmt..."
-  local needs_dartfmt="$(format -n "$@")"
-  if [[ -n "$needs_dartfmt" ]]; then
+  echo "Checking dart format..."
+  local needs_dart_format
+  needs_dart_format="$(format --output=none "$@")"
+  if [[ $? != 0 ]]; then
     echo "FAILED"
-    echo "$needs_dartfmt"
+    echo "$needs_dart_format"
     echo ""
-    echo "Fix formatting with: ci/format.sh --fix"
+    echo "Fix formatting with: ci/format.sh"
     exit 1
   fi
   echo "PASSED"
@@ -37,12 +37,12 @@ function check_format() {
 
 function fix_formatting() {
   echo "Fixing formatting..."
-  format -w "$@"
+  format --output=write "$@"
 }
 
-if [[ "$1" == "--fix" ]]; then
+if [[ "$1" == "--check" ]]; then
   shift
-  fix_formatting "$@"
-else
   check_format "$@"
+else
+  fix_formatting "$@"
 fi

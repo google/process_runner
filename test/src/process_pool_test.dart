@@ -4,8 +4,8 @@
 
 import 'dart:io';
 
-import 'package:test/test.dart';
 import 'package:process_runner/process_runner.dart';
+import 'package:test/test.dart';
 
 import 'fake_process_manager.dart';
 
