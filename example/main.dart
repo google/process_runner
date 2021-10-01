@@ -6,13 +6,34 @@
 //
 // This example program is actually pretty useful even if you don't use
 // process_runner for your Dart project. It can speed up processing of a bunch
-// of single-threaded CPU-intensive commands by a multple of the number of
+// of single-threaded CPU-intensive commands by a multiple of the number of
 // processor cores you have (modulo being disk/network bound, of course).
 
 import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:process_runner/process_runner.dart';
+
+const String _kHelpFlag = 'help';
+const String _kQuietFlag = 'quiet';
+const String _kReportFlag = 'report';
+const String _kPrintStdoutFlag = 'stdout';
+const String _kPrintStderrFlag = 'stderr';
+const String _kRunInShellFlag = 'run-in-shell';
+const String _kAllowFailureFlag = 'fail-ok';
+const List<String> _kFlags = <String>[
+  _kHelpFlag,
+  _kQuietFlag,
+  _kReportFlag,
+  _kPrintStdoutFlag,
+  _kPrintStderrFlag,
+  _kRunInShellFlag,
+];
+const String _kJobsOption = 'jobs';
+const String _kWorkingDirectoryOption = 'working-directory';
+const String _kCommandOption = 'command';
+const String _kSourceOption = 'source';
+const String _kAppName = 'process_runner';
 
 // This only works for escaped spaces and things in double or single quotes.
 // This is just an example, modify to meet your own requirements.
@@ -93,64 +114,169 @@ Iterable<String> findAllOptions(String option, List<String> args) sync* {
   }
 }
 
-Future<void> main(List<String> args) async {
-  final ArgParser parser = ArgParser();
-  parser.addFlag('help', help: 'Print help.');
-  parser.addFlag('report', help: 'Print progress on the jobs while running.', defaultsTo: false);
-  parser.addFlag('run-in-shell', help: 'Run the commands in a subshell.', defaultsTo: false);
-  parser.addOption('workers',
-      abbr: 'w',
-      help: 'Specify the number of workers jobs to run simultanously. Defaults '
-          'to the number of processors on the machine.');
-  parser.addOption('workingDirectory',
-      abbr: 'd', help: 'Specify the working directory to run on', defaultsTo: '.');
-  parser.addMultiOption('cmd',
-      abbr: 'c',
-      help: 'Specify a command to add to the commands to be run. Entire '
-          'command must be quoted by the shell. Commands specified with this '
-          'option run before those specified with --cmdFile');
-  parser.addOption('file',
-      abbr: 'f',
-      help: 'Specify the name of a file to read commands from, one per line, as '
-          'they would appear on the command line, with spaces escaped or '
-          'quoted. Specify "-" to read from stdin.',
-      defaultsTo: '-');
-  final ArgResults options = parser.parse(args);
+// Print reports to stderr, to avoid polluting any stdout from the jobs.
+void stderrPrintReport(
+  int total,
+  int completed,
+  int inProgress,
+  int pending,
+  int failed,
+) {
+  stderr.write(ProcessPool.defaultReportToString(total, completed, inProgress, pending, failed));
+}
 
-  if (options['help'] as bool) {
-    print('main.dart [flags]');
-    print(parser.usage);
-    exit(0);
+Future<void> main(List<String> args) async {
+  final ArgParser parser = ArgParser(usageLineLength: 80);
+  parser.addFlag(
+    _kHelpFlag,
+    abbr: 'h',
+    defaultsTo: false,
+    negatable: false,
+    help: 'Print help for $_kAppName.',
+  );
+  parser.addFlag(
+    _kQuietFlag,
+    abbr: 'q',
+    defaultsTo: false,
+    negatable: false,
+    help: 'Silences the stderr and stdout output of the commands. This '
+        'is a shorthand for "--no-$_kPrintStdoutFlag --no-$_kPrintStderrFlag".',
+  );
+  parser.addFlag(
+    _kReportFlag,
+    abbr: 'r',
+    defaultsTo: false,
+    negatable: false,
+    help: 'Print progress on the jobs to stderr while running.',
+  );
+  parser.addFlag(
+    _kPrintStdoutFlag,
+    defaultsTo: true,
+    help: 'Prints the stdout output of the commands to stdout in the order '
+        'they complete. Will not interleave lines from separate processes. Has no '
+        'effect if --$_kQuietFlag is specified.',
+  );
+  parser.addFlag(
+    _kPrintStderrFlag,
+    defaultsTo: true,
+    help: 'Prints the stderr output of the commands to stderr in the order '
+        'they complete. Will not interleave lines from separate processes. Has no '
+        'effect if --$_kQuietFlag is specified',
+  );
+  parser.addFlag(
+    _kRunInShellFlag,
+    defaultsTo: false,
+    negatable: false,
+    help: 'Run the commands in a subshell.',
+  );
+  parser.addFlag(
+    _kAllowFailureFlag,
+    defaultsTo: false,
+    help: 'If set, allows continuing execution of the remaining commands even if '
+        'one fails to execute. If not set, ("--no-$_kAllowFailureFlag") then '
+        'process will just exit with a non-zero code at completion if there were '
+        'any jobs that failed.',
+  );
+  parser.addOption(
+    _kJobsOption,
+    abbr: 'j',
+    help: 'Specify the number of worker jobs to run simultaneously. Defaults '
+        'to the number of processor cores on the machine (which is '
+        '${Platform.numberOfProcessors} on this machine).',
+  );
+  parser.addOption(
+    _kWorkingDirectoryOption,
+    defaultsTo: '.',
+    help: 'Specify the working directory to run in.',
+  );
+  parser.addMultiOption(
+    _kCommandOption,
+    abbr: 'c',
+    help: 'Specify a command to add to the commands to be run. Commands '
+        'specified with this option run before those specified with '
+        '--$_kSourceOption. Be sure to quote arguments to --$_kCommandOption '
+        'properly on the command line.',
+  );
+  parser.addMultiOption(
+    _kSourceOption,
+    abbr: 's',
+    defaultsTo: <String>[],
+    help: 'Specify the name of a file to read commands from, one per line, as '
+        'they would appear on the command line, with spaces escaped or '
+        'quoted. Specify "--$_kSourceOption -" to read from stdin. More than '
+        'one --$_kSourceOption argument may be specified, and they will be '
+        'concatenated in the order specified. The stdin ("--$_kSourceOption -") '
+        'argument may only be specified once.',
+  );
+
+  late ArgResults options;
+  try {
+    options = parser.parse(args);
+  } on FormatException catch (e) {
+    stderr.writeln('Argument Error: ${e.message}');
+    stderr.writeln(parser.usage);
+    exitCode = 1;
+    return;
   }
 
-  // Collect the commands to be run from the command file.
-  final String? commandFile = options['file'] as String?;
-  List<String> fileCommands = <String>[];
-  if (commandFile != null) {
-    // Read from stdin if the --file option is set to '-'.
-    if (commandFile == '-') {
-      String? line = stdin.readLineSync();
-      while (line != null) {
-        fileCommands.add(line);
-        line = stdin.readLineSync();
+  if (options[_kHelpFlag] as bool) {
+    print(
+      '$_kAppName [--${_kFlags.join('] [--')}] '
+      '[--$_kWorkingDirectoryOption=<working directory>] '
+      '[--$_kJobsOption=<num_worker_jobs>] '
+      '[--$_kCommandOption="command" ...] '
+      '[--$_kSourceOption=<file|"-"> ...]:',
+    );
+
+    print(parser.usage);
+    exitCode = 0;
+    return;
+  }
+
+  final bool quiet = options[_kQuietFlag]! as bool;
+  final bool printStderr = !quiet && options[_kPrintStderrFlag]! as bool;
+  final bool printStdout = !quiet && options[_kPrintStdoutFlag]! as bool;
+  final bool printReport = options[_kReportFlag]! as bool;
+  final bool runInShell = options[_kRunInShellFlag]! as bool;
+  final bool failOk = options[_kAllowFailureFlag]! as bool;
+
+  // Collect the commands to be run from the command file(s).
+  final List<String>? commandFiles = options[_kSourceOption] as List<String>?;
+  final List<String> fileCommands = <String>[];
+  if (commandFiles != null) {
+    bool sawStdinAlready = false;
+    for (final String commandFile in commandFiles) {
+      // Read from stdin if the --file option is set to '-'.
+      if (commandFile == '-') {
+        if (sawStdinAlready) {
+          stderr.writeln('ERROR: The stdin can only be specified once with "--$_kSourceOption -"');
+          exitCode = 1;
+          return;
+        }
+        sawStdinAlready = true;
+        String? line = stdin.readLineSync();
+        while (line != null) {
+          fileCommands.add(line);
+          line = stdin.readLineSync();
+        }
+      } else {
+        // Read the commands from a file.
+        final File cmdFile = File(commandFile);
+        if (!cmdFile.existsSync()) {
+          print('''Command file "$commandFile" doesn't exist.''');
+          exit(1);
+        }
+        fileCommands.addAll(cmdFile.readAsLinesSync());
       }
-    } else {
-      // Read the commands from a file.
-      final File cmdFile = File(commandFile);
-      if (!cmdFile.existsSync()) {
-        print('Command file "$commandFile" doesn\'t exist.');
-        exit(1);
-      }
-      fileCommands = cmdFile.readAsLinesSync();
     }
   }
 
   // Collect all the commands, both from the input file, and from the command
-  // line. The command line commands come first (although they could all be
-  // executed simultaneously, depending on the number of workers, and number of
-  // commands).
+  // line. The command line commands come first (although they could all
+  // potentially be executed simultaneously, depending on the number of workers,
+  // and number of commands).
   final List<String> commands = <String>[
-    if (options['cmd'] != null) ...options['cmd']! as List<String>,
+    if (options[_kCommandOption] != null) ...options[_kCommandOption]! as List<String>,
     ...fileCommands,
   ];
 
@@ -160,26 +286,42 @@ Future<void> main(List<String> args) async {
 
   // If the numWorkers is set to null, then the ProcessPool will automatically
   // select the number of processes based on how many CPU cores the machine has.
-  final int? numWorkers = int.tryParse(options['workers'] as String? ?? '');
-  final bool printReport = options['report']! as bool? ?? false;
-  final Directory workingDirectory = Directory((options['workingDirectory'] as String?) ?? '.');
-  final bool runInShell = options['run-in-shell'] as bool? ?? false;
+  final int? numWorkers = int.tryParse(options[_kJobsOption] as String? ?? '');
+  final Directory workingDirectory =
+      Directory((options[_kWorkingDirectoryOption] as String?) ?? '.');
 
   final ProcessPool pool = ProcessPool(
     numWorkers: numWorkers,
-    printReport: printReport ? ProcessPool.defaultPrintReport : null,
+    printReport: printReport ? stderrPrintReport : null,
   );
   final List<WorkerJob> jobs = splitCommands.map<WorkerJob>((List<String> command) {
     return WorkerJob(
       command,
       workingDirectory: workingDirectory,
       runInShell: runInShell,
+      failOk: failOk,
     );
   }).toList();
-  await for (final WorkerJob done in pool.startWorkers(jobs)) {
-    if (printReport) {
-      print('\nFinished job ${done.name}');
+  try {
+    await for (final WorkerJob done in pool.startWorkers(jobs)) {
+      if (printReport) {
+        stderr.writeln('\nFinished job ${done.name}');
+      }
+      if (printStdout) {
+        stdout.write(done.result.stdout);
+      }
+      if (printStderr) {
+        stderr.write(done.result.stderr);
+      }
     }
-    stdout.write(done.result.stdout);
+  } on ProcessRunnerException catch (e) {
+    if (!failOk) {
+      stderr.writeln('$_kAppName execution failed: $e');
+      exitCode = e.exitCode;
+      return;
+    }
   }
+
+  // Return non-zero exit code if there were jobs that failed.
+  exitCode = pool.failedJobs != 0 ? 1 : 0;
 }

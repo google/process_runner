@@ -1,5 +1,11 @@
 # Change Log for `process_runner`
 
+## 4.1.0
+
+* Adds a pub-installable command line utility, based on the example code, to run a tasks queue of commands from a command line. See [README.md](README.md) for more details.
+* Example code is updated.
+* Now throws a `ProcessRunnerException` if a job fails and `failOk` on that job is `false`.
+
 ## 4.0.1
 
 * Add startMode to allow passing of a ProcessStartMode to

@@ -72,7 +72,22 @@ void main() {
       expect(completed.first.result.stderr, equals('stderr1'));
       expect(completed.first.result.output, equals('output1stderr1'));
     });
-    test('Commands the throw exceptions report results', () async {
+    test('failed tests throw when failOk is false', () async {
+      final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+          <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
+          ProcessResult(0, -1, 'output1', 'stderr1'),
+        ],
+      };
+      fakeProcessManager.fakeResults = calls;
+      final List<WorkerJob> jobs = <WorkerJob>[
+        WorkerJob(<String>['command', 'arg1', 'arg2'], name: 'job 1', failOk: false),
+      ];
+      expect(() async {
+        await processPool.runToCompletion(jobs);
+      }, throwsException);
+    });
+    test('Commands that throw exceptions report results', () async {
       fakeProcessManager = FakeProcessManager((String value) {}, commandsThrow: true);
       processRunner = ProcessRunner(processManager: fakeProcessManager);
       processPool = ProcessPool(processRunner: processRunner, printReport: null);

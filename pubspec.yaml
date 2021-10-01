@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 name: process_runner
-version: 4.0.1
+version: 4.1.0
 description: A process invocation astraction for Dart that manages a multiprocess queue.
 homepage: https://github.com/google/process_runner
 
@@ -20,3 +20,6 @@ dev_dependencies:
 
 environment:
   sdk: '>=2.12.0 <3.0.0'
+
+binaries:
+  process_runner:
