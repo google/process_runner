@@ -56,16 +56,26 @@ class WorkerJob {
   /// Whether or not this command should print it's stdout when it runs.
   final bool printOutput;
 
-  /// Whether or not failure of this job should print a message to stderr or
-  /// not.
+  /// Whether or not failure of this job should throw an exception.
+  ///
+  /// If `failOk` is false, and this job fails (returns a non-zero exit code, or
+  /// otherwise fails to start), then a [ProcessRunnerException] will be thrown
+  /// containing the details.
   ///
   /// Defaults to true, since the [result] will contain the exit code.
   final bool failOk;
 
-  /// If set to true, the process will run in a shell.
+  /// If set to true, the process will run be spawned through a system shell.
   ///
   /// Running in a shell is generally not recommended, as it provides worse
-  /// performance, and some security risk, but is sometimes necessary.
+  /// performance, and some security risk, but is sometimes necessary for
+  /// accessing the shell environment. Shell command line expansion and
+  /// interpolation is not performed on the commands, but you can execute shell
+  /// builtins. Use the shell builtin "eval" (on Unix systems) if you want to
+  /// execute shell commands with expansion.
+  ///
+  /// On Linux and OS X, `/bin/sh` is used, while on Windows,
+  /// `%WINDIR%\system32\cmd.exe` is used.
   ///
   /// Defaults to false.
   final bool runInShell;
@@ -168,8 +178,7 @@ class ProcessPool {
         totalJobs, _completedJobs.length, _inProgressJobs, _pendingJobs.length, _failedJobs.length);
   }
 
-  /// The default report printing function, if one is not supplied.
-  static void defaultPrintReport(
+  static String defaultReportToString(
     int total,
     int completed,
     int inProgress,
@@ -183,9 +192,18 @@ class ProcessPool {
     final String inProgressStr = inProgress.toString().padLeft(2);
     final String pendingStr = pending.toString().padLeft(3);
     final String failedStr = failed.toString().padLeft(3);
+    return 'Jobs: $percent% done, $completedStr/$totalStr completed, $inProgressStr in progress, $pendingStr pending, $failedStr failed.    \r';
+  }
 
-    stdout.write(
-        'Jobs: $percent% done, $completedStr/$totalStr completed, $inProgressStr in progress, $pendingStr pending, $failedStr failed.    \r');
+  /// The default report printing function, if one is not supplied.
+  static void defaultPrintReport(
+    int total,
+    int completed,
+    int inProgress,
+    int pending,
+    int failed,
+  ) {
+    stdout.write(defaultReportToString(total, completed, inProgress, pending, failed));
   }
 
   Future<WorkerJob> _performJob(WorkerJob job) async {
@@ -204,12 +222,12 @@ class ProcessPool {
       );
       _completedJobs.add(job);
     } on ProcessRunnerException catch (e) {
-      if (!job.failOk) {
-        stderr.writeln('\nJob $job failed: $e');
-      }
       job.result = e.result ?? ProcessRunnerResult.failed;
       job.exception = e;
       _failedJobs.add(job);
+      if (!job.failOk) {
+        rethrow;
+      }
     } finally {
       _inProgressJobs--;
       _printReportIfNeeded();
