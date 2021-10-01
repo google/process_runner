@@ -1,5 +1,9 @@
 # Change Log for `process_runner`
 
+## 4.1.1
+
+* Adds missing dependency on args package to allow global activate.
+
 ## 4.1.0
 
 * Adds a pub-installable command line utility, based on the example code, to run a tasks queue of commands from a command line. See [README.md](README.md) for more details.
