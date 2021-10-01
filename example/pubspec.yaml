@@ -9,7 +9,7 @@ homepage: https://github.com/google/process_runner/example
 publish_to: none
 
 dependencies:
-  args: ^2.1.0
+  args: ^2.3.0
   process_runner:
     path: ..
 
