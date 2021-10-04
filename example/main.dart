@@ -304,9 +304,6 @@ Future<void> main(List<String> args) async {
   }).toList();
   try {
     await for (final WorkerJob done in pool.startWorkers(jobs)) {
-      if (printReport) {
-        stderr.writeln('\nFinished job ${done.name}');
-      }
       if (printStdout) {
         stdout.write(done.result.stdout);
       }
