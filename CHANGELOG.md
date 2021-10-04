@@ -1,5 +1,9 @@
 # Change Log for `process_runner`
 
+## 4.1.2
+
+* Reduces process pool output in "report" mode by not printing individual completions.
+
 ## 4.1.1
 
 * Adds missing dependency on args package to allow global activate.
