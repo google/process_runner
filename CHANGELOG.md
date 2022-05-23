@@ -2,6 +2,10 @@
 
 ## 4.1.2
 
+* Bump dependency version for platform package so process_runner works with newer versions of dart:io.
+
+## 4.1.2
+
 * Reduces process pool output in "report" mode by not printing individual completions.
 
 ## 4.1.1
