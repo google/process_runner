@@ -1,7 +1,8 @@
 # Change Log for `process_runner`
 
-## 4.1.2
+## 4.1.3
 
+* Bump dependency version for `file``.
 * Bump dependency version for platform package so process_runner works with newer versions of dart:io.
 
 ## 4.1.2
