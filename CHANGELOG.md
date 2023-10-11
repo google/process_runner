@@ -1,5 +1,9 @@
 # Change Log for `process_runner`
 
+## 4.1.4
+
+* Bump dependency version for `process`.
+
 ## 4.1.3
 
 * Bump dependency version for `file`.
