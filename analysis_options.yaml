@@ -81,7 +81,6 @@ linter:
     - cancel_subscriptions
     # - cascade_invocations # not yet tested
     - cast_nullable_to_non_nullable
-    - collection_methods_unrelated_type
     # - close_sinks # not reliable enough
     # - comment_references # blocked on https://github.com/dart-lang/linter/issues/1142
     # - constant_identifier_names # needs an opt-out https://github.com/dart-lang/linter/issues/204
