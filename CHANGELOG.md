@@ -1,8 +1,9 @@
 # Change Log for `process_runner`
 
-## 4.1.5
+## 5.0.0
 
-* Added WorkerTaskGroup for running a group of dependent tasks in order.
+* Added `WorkerTaskGroup` for running a group of dependent tasks in order.
+* Adds pending jobs to progress reporting callback API, causing a breaking change to the `ProcessPool` API.
 
 ## 4.1.4
 

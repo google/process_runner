@@ -127,8 +127,8 @@ class WorkerJob extends Job {
   String toString() => command.join(' ');
 }
 
-class WorkerTaskGroup extends Job {
-  WorkerTaskGroup(this.workers);
+class WorkerJobGroup extends Job {
+  WorkerJobGroup(this.workers);
 
   final Iterable<WorkerJob> workers;
 
@@ -205,7 +205,7 @@ class ProcessPool {
   int get pendingJobs => _pendingTasksCount;
 
   /// Returns the number of groups that are pending.
-  int get pendingTaskGroups => _pendingTaskGroups.length;
+  int get pendingTaskGroups => _pendingJobGroups.length;
 
   /// Returns the number of jobs that have failed so far.
   int get failedJobs => _failedTasks.length;
@@ -214,9 +214,10 @@ class ProcessPool {
   int get totalJobs {
     return _completedTasks.length + _inProgressTasks + _pendingTasksCount + _failedTasks.length;
   }
+
   int _pendingTasksCount = 0;
 
-  final List<Job> _pendingTaskGroups = <Job>[];
+  final List<Job> _pendingJobGroups = <Job>[];
   final List<WorkerJob> _failedTasks = <WorkerJob>[];
   final List<WorkerJob> _completedTasks = <WorkerJob>[];
 
@@ -224,7 +225,8 @@ class ProcessPool {
     if (printReport == null) {
       return;
     }
-    printReport?.call(totalJobs, _completedTasks.length, _inProgressTasks, _pendingTasksCount, _pendingTaskGroups.length, _failedTasks.length);
+    printReport?.call(totalJobs, _completedTasks.length, _inProgressTasks, _pendingTasksCount,
+        _pendingJobGroups.length, _failedTasks.length);
   }
 
   static String defaultReportToString(
@@ -235,12 +237,13 @@ class ProcessPool {
     int groupsPending,
     int failed,
   ) {
-    final String percent = total == 0 ? '100' : ((100 * (completed + failed)) ~/ total).toString().padLeft(3);
+    final String percent =
+        total == 0 ? '100' : ((100 * (completed + failed)) ~/ total).toString().padLeft(3);
     final String completedStr = completed.toString().padLeft(3);
     final String totalStr = total.toString().padRight(3);
     final String inProgressStr = inProgress.toString().padLeft(2);
     final String pendingStr = pending.toString().padLeft(3);
-    final String pendingGroupsStr = groupsPending.toString().padLeft(3);
+    final String pendingGroupsStr = groupsPending.toString().padLeft(2);
     final String failedStr = failed.toString().padLeft(3);
     return 'Jobs: $percent% done, $completedStr/$totalStr completed, $inProgressStr in progress, $pendingStr pending (in $pendingGroupsStr groups), $failedStr failed.    \r';
   }
@@ -254,7 +257,8 @@ class ProcessPool {
     int groupsPending,
     int failed,
   ) {
-    stdout.write(defaultReportToString(total, completed, inProgress, pending, groupsPending, failed));
+    stdout
+        .write(defaultReportToString(total, completed, inProgress, pending, groupsPending, failed));
   }
 
   Stream<WorkerJob> _performTasks(Job job) async* {
@@ -291,10 +295,10 @@ class ProcessPool {
   }
 
   Stream<WorkerJob> _startWorker() async* {
-    while (_pendingTaskGroups.isNotEmpty) {
-      final Job newJob = _pendingTaskGroups.removeAt(0);
+    while (_pendingJobGroups.isNotEmpty) {
+      final Job newJob = _pendingJobGroups.removeAt(0);
       _pendingTasksCount = 0;
-      final List<Job> jobs = _pendingTaskGroups.toList();
+      final List<Job> jobs = _pendingJobGroups.toList();
       for (final Job job in jobs) {
         _pendingTasksCount += await job.numTasks;
       }
@@ -316,7 +320,7 @@ class ProcessPool {
   /// Runs the `jobs` in parallel, with at most [numWorkers] jobs running
   /// simultaneously.
   ///
-  /// If the supplied job is a [WorkerTaskGroup], then the jobs in the task
+  /// If the supplied job is a [WorkerJobGroup], then the jobs in the task
   /// group will be run so that the tasks are executed in order (but still in
   /// parallel with other jobs).
   ///
@@ -326,18 +330,18 @@ class ProcessPool {
     _failedTasks.clear();
     _completedTasks.clear();
     _pendingTasksCount = 0;
-    _pendingTaskGroups.clear();
+    _pendingJobGroups.clear();
     if (jobs.isEmpty) {
       return;
     }
-    _pendingTaskGroups.addAll(jobs);
+    _pendingJobGroups.addAll(jobs);
     for (final Job job in jobs) {
       _pendingTasksCount += await job.numTasks;
     }
     _printReportIfNeeded();
     final List<Stream<WorkerJob>> streams = <Stream<WorkerJob>>[];
     for (int i = 0; i < numWorkers; ++i) {
-      if (_pendingTaskGroups.isEmpty) {
+      if (_pendingJobGroups.isEmpty) {
         break;
       }
       streams.add(_startWorker());
@@ -346,7 +350,7 @@ class ProcessPool {
       yield job;
     }
     assert(_inProgressTasks == 0);
-    assert(_pendingTaskGroups.isEmpty);
+    assert(_pendingJobGroups.isEmpty);
     return;
   }
 }

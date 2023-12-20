@@ -123,7 +123,8 @@ void stderrPrintReport(
   int groupsPending,
   int failed,
 ) {
-  stderr.write(ProcessPool.defaultReportToString(total, completed, inProgress, pending, groupsPending, failed));
+  stderr.write(ProcessPool.defaultReportToString(
+      total, completed, inProgress, pending, groupsPending, failed));
 }
 
 Future<void> main(List<String> args) async {
@@ -286,20 +287,23 @@ Future<void> main(List<String> args) async {
   // Split each command entry into a list of strings, taking into account some
   // simple quoting and escaping.
   final List<List<List<String>>> splitCommands = commandGroups
-      .map<List<List<String>>>((List<String> group) => group.map<List<String>>(splitIntoArgs).toList())
+      .map<List<List<String>>>(
+          (List<String> group) => group.map<List<String>>(splitIntoArgs).toList())
       .toList();
 
   // If the numWorkers is set to null, then the ProcessPool will automatically
   // select the number of processes based on how many CPU cores the machine has.
   final int? numWorkers = int.tryParse(options[_kJobsOption] as String? ?? '');
-  final Directory workingDirectory = Directory((options[_kWorkingDirectoryOption] as String?) ?? '.');
+  final Directory workingDirectory =
+      Directory((options[_kWorkingDirectoryOption] as String?) ?? '.');
 
   final ProcessPool pool = ProcessPool(
     numWorkers: numWorkers,
     printReport: printReport ? stderrPrintReport : null,
   );
-  final Iterable<WorkerTaskGroup> jobs = splitCommands.map<WorkerTaskGroup>((List<List<String>> group) {
-    return WorkerTaskGroup(group
+  final Iterable<WorkerJobGroup> jobs =
+      splitCommands.map<WorkerJobGroup>((List<List<String>> group) {
+    return WorkerJobGroup(group
         .map<WorkerJob>((List<String> command) => WorkerJob(
               command,
               workingDirectory: workingDirectory,
