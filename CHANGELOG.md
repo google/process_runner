@@ -1,5 +1,9 @@
 # Change Log for `process_runner`
 
+## 4.1.5
+
+* Added WorkerTaskGroup for running a group of dependent tasks in order.
+
 ## 4.1.4
 
 * Bump dependency version for `process`.
@@ -40,11 +44,11 @@
 
 ## 4.0.0-nullsafety.3
 
-* Rebase onto non-nullsafety version 3.1.1 to pick up those changes. 
+* Rebase onto non-nullsafety version 3.1.1 to pick up those changes.
 
 ## 4.0.0-nullsafety.2
 
-* Rebase onto non-nullsafety version 3.1.0 to pick up those changes. 
+* Rebase onto non-nullsafety version 3.1.0 to pick up those changes.
 
 ## 4.0.0-nullsafety.1
 

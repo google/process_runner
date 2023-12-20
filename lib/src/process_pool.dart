@@ -10,11 +10,29 @@ import 'package:async/async.dart' show StreamGroup;
 
 import 'process_runner.dart';
 
-/// A class that represents a job to be done by a [ProcessPool].
+/// Base class for all job types.
+///
+/// Defines an API for getting at the sub-tasks of a job, and for getting the
+/// number of sub-tasks.
+abstract class Job {
+  /// Return the stream of sub-tasks for this job.
+  ///
+  /// These tasks will be executed in order, but in parallel with tasks from
+  /// other jobs.
+  Stream<WorkerJob> get tasks;
+
+  /// Return the number of tasks in this job.
+  ///
+  /// May be calculated asynchronously, but must complete before the first
+  /// task will be started.
+  Future<int> get numTasks;
+}
+
+/// A class that represents a single task to be performed by a [ProcessPool].
 ///
 /// Create a list of these to pass to [ProcessPool.startWorkers] or
 /// [ProcessPool.runToCompletion].
-class WorkerJob {
+class WorkerJob extends Job {
   WorkerJob(
     this.command, {
     String? name,
@@ -98,8 +116,34 @@ class WorkerJob {
   Exception? exception;
 
   @override
-  String toString() {
-    return command.join(' ');
+  Stream<WorkerJob> get tasks async* {
+    yield this;
+  }
+
+  @override
+  Future<int> get numTasks async => 1;
+
+  @override
+  String toString() => command.join(' ');
+}
+
+class WorkerTaskGroup extends Job {
+  WorkerTaskGroup(this.workers);
+
+  final List<WorkerJob> workers;
+
+  @override
+  Stream<WorkerJob> get tasks async* {
+    yield* StreamGroup.merge(workers.map((WorkerJob worker) => worker.tasks));
+  }
+
+  @override
+  Future<int> get numTasks async {
+    int numTasks = 0;
+    for (final WorkerJob job in workers) {
+      numTasks += await job.numTasks;
+    }
+    return numTasks;
   }
 }
 
@@ -150,32 +194,33 @@ class ProcessPool {
   final int numWorkers;
 
   /// Returns the number of jobs currently in progress.
-  int get inProgressJobs => _inProgressJobs;
-  int _inProgressJobs = 0;
+  int get inProgressJobs => _inProgressTasks;
+  int _inProgressTasks = 0;
 
   /// Returns the number of jobs that have been completed
-  int get completedJobs => _completedJobs.length;
+  int get completedJobs => _completedTasks.length;
 
   /// Returns the number of jobs that are pending.
   int get pendingJobs => _pendingJobs.length;
 
   /// Returns the number of jobs that have failed so far.
-  int get failedJobs => _failedJobs.length;
+  int get failedJobs => _failedTasks.length;
 
   /// Returns the total number of jobs that have been given to this pool.
-  int get totalJobs =>
-      _completedJobs.length + _inProgressJobs + _pendingJobs.length + _failedJobs.length;
+  int get totalJobs {
+    return _completedTasks.length + _inProgressTasks + _pendingTasksCount + _failedTasks.length;
+  }
+  int _pendingTasksCount = 0;
 
-  final List<WorkerJob> _pendingJobs = <WorkerJob>[];
-  final List<WorkerJob> _failedJobs = <WorkerJob>[];
-  final List<WorkerJob> _completedJobs = <WorkerJob>[];
+  final List<Job> _pendingJobs = <Job>[];
+  final List<WorkerJob> _failedTasks = <WorkerJob>[];
+  final List<WorkerJob> _completedTasks = <WorkerJob>[];
 
   void _printReportIfNeeded() {
     if (printReport == null) {
       return;
     }
-    printReport?.call(
-        totalJobs, _completedJobs.length, _inProgressJobs, _pendingJobs.length, _failedJobs.length);
+    printReport?.call(totalJobs, _completedTasks.length, _inProgressTasks, _pendingJobs.length, _failedTasks.length);
   }
 
   static String defaultReportToString(
@@ -185,8 +230,7 @@ class ProcessPool {
     int pending,
     int failed,
   ) {
-    final String percent =
-        total == 0 ? '100' : ((100 * (completed + failed)) ~/ total).toString().padLeft(3);
+    final String percent = total == 0 ? '100' : ((100 * (completed + failed)) ~/ total).toString().padLeft(3);
     final String completedStr = completed.toString().padLeft(3);
     final String totalStr = total.toString().padRight(3);
     final String inProgressStr = inProgress.toString().padLeft(2);
@@ -206,40 +250,48 @@ class ProcessPool {
     stdout.write(defaultReportToString(total, completed, inProgress, pending, failed));
   }
 
-  Future<WorkerJob> _performJob(WorkerJob job) async {
-    try {
-      job.result = await processRunner.runProcess(
-        job.command,
-        workingDirectory: job.workingDirectory ?? processRunner.defaultWorkingDirectory,
-        printOutput: job.printOutput,
-        stdin: job.stdinRaw ?? encoding.encoder.bind(job.stdin ?? const Stream<String>.empty()),
-        // Starting process pool jobs in any other mode makes no sense: they
-        // would all just be immediately started and bring the machine to its
-        // knees.
-        startMode: ProcessStartMode.normal,
-        runInShell: job.runInShell,
-        failOk: false, // Must be false so that we can catch the exception below.
-      );
-      _completedJobs.add(job);
-    } on ProcessRunnerException catch (e) {
-      job.result = e.result ?? ProcessRunnerResult.failed;
-      job.exception = e;
-      _failedJobs.add(job);
-      if (!job.failOk) {
-        rethrow;
+  Stream<WorkerJob> _performTasks(Job job) async* {
+    await for (final WorkerJob job in job.tasks) {
+      try {
+        _inProgressTasks++;
+        _printReportIfNeeded();
+        job.result = await processRunner.runProcess(
+          job.command,
+          workingDirectory: job.workingDirectory ?? processRunner.defaultWorkingDirectory,
+          printOutput: job.printOutput,
+          stdin: job.stdinRaw ?? encoding.encoder.bind(job.stdin ?? const Stream<String>.empty()),
+          // Starting process pool jobs in any other mode makes no sense: they
+          // would all just be immediately started and bring the machine to its
+          // knees.
+          startMode: ProcessStartMode.normal,
+          runInShell: job.runInShell,
+          failOk: false, // Must be false so that we can catch the exception below.
+        );
+        _completedTasks.add(job);
+      } on ProcessRunnerException catch (e) {
+        job.result = e.result ?? ProcessRunnerResult.failed;
+        job.exception = e;
+        _failedTasks.add(job);
+        if (!job.failOk) {
+          rethrow;
+        }
+      } finally {
+        _inProgressTasks--;
+        _printReportIfNeeded();
+        yield job;
       }
-    } finally {
-      _inProgressJobs--;
-      _printReportIfNeeded();
     }
-    return job;
   }
 
   Stream<WorkerJob> _startWorker() async* {
     while (_pendingJobs.isNotEmpty) {
-      final WorkerJob newJob = _pendingJobs.removeAt(0);
-      _inProgressJobs++;
-      yield await _performJob(newJob);
+      final Job newJob = _pendingJobs.removeAt(0);
+      _pendingTasksCount = 0;
+      for (final Job job in _pendingJobs) {
+        _pendingTasksCount += await job.numTasks;
+      }
+      _printReportIfNeeded();
+      yield* _performTasks(newJob);
     }
   }
 
@@ -247,7 +299,7 @@ class ProcessPool {
   /// when all have been completed.
   ///
   /// To listen to jobs as they are completed, use [startWorkers] instead.
-  Future<List<WorkerJob>> runToCompletion(List<WorkerJob> jobs) async {
+  Future<List<WorkerJob>> runToCompletion(List<Job> jobs) async {
     final List<WorkerJob> results = <WorkerJob>[];
     await startWorkers(jobs).forEach(results.add);
     return results;
@@ -256,15 +308,25 @@ class ProcessPool {
   /// Runs the `jobs` in parallel, with at most [numWorkers] jobs running
   /// simultaneously.
   ///
+  /// If the supplied job is a [WorkerTaskGroup], then the jobs in the task
+  /// group will be run so that the tasks are executed in order (but still in
+  /// parallel with other jobs).
+  ///
   /// Returns the the jobs in a [Stream] as they are completed.
-  Stream<WorkerJob> startWorkers(List<WorkerJob> jobs) async* {
-    assert(_inProgressJobs == 0);
-    _failedJobs.clear();
-    _completedJobs.clear();
+  Stream<WorkerJob> startWorkers(List<Job> jobs) async* {
+    assert(_inProgressTasks == 0);
+    _failedTasks.clear();
+    _completedTasks.clear();
+    _pendingTasksCount = 0;
+    _pendingJobs.clear();
     if (jobs.isEmpty) {
       return;
     }
     _pendingJobs.addAll(jobs);
+    for (final Job job in jobs) {
+      _pendingTasksCount += await job.numTasks;
+    }
+    _printReportIfNeeded();
     final List<Stream<WorkerJob>> streams = <Stream<WorkerJob>>[];
     for (int i = 0; i < numWorkers; ++i) {
       if (_pendingJobs.isEmpty) {
@@ -275,7 +337,7 @@ class ProcessPool {
     await for (final WorkerJob job in StreamGroup.merge<WorkerJob>(streams)) {
       yield job;
     }
-    assert(_inProgressJobs == 0);
+    assert(_inProgressTasks == 0);
     assert(_pendingJobs.isEmpty);
     return;
   }
