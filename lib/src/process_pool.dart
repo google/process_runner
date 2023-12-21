@@ -135,7 +135,8 @@ class WorkerJobGroup extends DependentJob {
     this.workers, {
     this.name = '<unknown>',
     bool setDependencies = true,
-  }) : assert(workers.isNotEmpty) {
+  })  : dependsOn = workers.toSet(),
+        assert(workers.isNotEmpty) {
     // Make sure they run in series.
     if (setDependencies) {
       for (int i = 1; i < workers.length; i++) {
@@ -147,12 +148,11 @@ class WorkerJobGroup extends DependentJob {
   @override
   final String name;
 
-  // The workers that will run in order because
-  // They depend on each other.
+  /// The workers that will run in order because They depend on each other.
   final List<DependentJob> workers;
 
   @override
-  Set<DependentJob> get dependsOn => workers.toSet();
+  final Set<DependentJob> dependsOn;
 
   @override
   void addToQueue(List<DependentJob> jobs) {

@@ -172,4 +172,80 @@ void main() {
       unorderedEquals(<String>['job A3', 'job B3']),
     );
   });
+  test('Commands in task groups can depend on other groups', () async {
+    fakeProcessManager = FakeProcessManager((String value) {});
+    processRunner = ProcessRunner(processManager: fakeProcessManager);
+    processPool = ProcessPool(processRunner: processRunner, printReport: null);
+    final Map<FakeInvocationRecord, List<ProcessResult>> calls = <FakeInvocationRecord, List<ProcessResult>>{
+      FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'], testPath): <ProcessResult>[
+        ProcessResult(0, 0, 'outputA1', 'stderrA1'),
+      ],
+      FakeInvocationRecord(<String>['commandB1', 'arg1', 'arg2'], testPath): <ProcessResult>[
+        ProcessResult(0, 0, 'outputB1', 'stderrB1'),
+      ],
+      FakeInvocationRecord(<String>['commandA2', 'arg1', 'arg2'], testPath): <ProcessResult>[
+        ProcessResult(0, 0, 'outputA2', 'stderrA2'),
+      ],
+      FakeInvocationRecord(<String>['commandB2', 'arg1', 'arg2'], testPath): <ProcessResult>[
+        ProcessResult(0, -1, 'outputB2', 'stderrB2'),
+      ],
+      FakeInvocationRecord(<String>['commandA3', 'arg1', 'arg2'], testPath): <ProcessResult>[
+        ProcessResult(0, 0, 'outputA3', 'stderrA3'),
+      ],
+      FakeInvocationRecord(<String>['commandB3', 'arg1', 'arg2'], testPath): <ProcessResult>[
+        ProcessResult(0, 0, 'outputB3', 'stderrB3'),
+      ],
+    };
+    fakeProcessManager.fakeResults = calls;
+    final WorkerJobGroup groupA = WorkerJobGroup(
+      <WorkerJob>[
+        WorkerJob(<String>['commandA1', 'arg1', 'arg2'], name: 'job A1'),
+        WorkerJob(<String>['commandA2', 'arg1', 'arg2'], name: 'job A2'),
+        WorkerJob(<String>['commandA3', 'arg1', 'arg2'], name: 'job A3'),
+      ],
+      name: 'Group A',
+    );
+    final WorkerJobGroup groupB = WorkerJobGroup(
+      <WorkerJob>[
+        WorkerJob(<String>['commandB1', 'arg1', 'arg2'], name: 'job B1'),
+        WorkerJob(<String>['commandB2', 'arg1', 'arg2'], name: 'job B2'),
+        WorkerJob(<String>['commandB3', 'arg1', 'arg2'], name: 'job B3'),
+      ],
+      name: 'Group B',
+    );
+    groupB.dependsOn.add(groupA);
+    final List<DependentJob> jobs = <DependentJob>[groupA, groupB];
+    final List<WorkerJob> completed = await processPool.runToCompletion(jobs);
+    expect(completed.length, equals(6));
+    // Make sure they executed in the correct order.
+    expect(completed.map<String>((WorkerJob job) => job.name),
+        equals(<String>['job A1', 'job A2', 'job A3', 'job B1', 'job B2', 'job B3']));
+    // Command B2 failed with -1, so B3 should also fail.
+    expect(
+      completed.where((WorkerJob job) => job.result.exitCode != 0).map((WorkerJob job) => job.name),
+      unorderedEquals(<String>['job B2', 'job B3']),
+    );
+    expect(
+      completed.where((WorkerJob job) => job.exception == null).map((WorkerJob job) => job.name),
+      unorderedEquals(<String>['job A1', 'job B1', 'job A2', 'job A3']),
+    );
+    expect(
+      completed.where((WorkerJob job) => job.result.exitCode == 0).map((WorkerJob job) => job.name),
+      unorderedEquals(<String>['job B1', 'job A1', 'job A2', 'job A3']),
+    );
+    // Either group A or B can come first, but the individual group tasks should
+    // be in order.
+    expect(
+      <String>[completed[0].name, completed[1].name],
+      unorderedEquals(<String>['job A1', 'job B1']),
+    );
+    expect(
+      <String>[completed[2].name, completed[3].name],
+      unorderedEquals(<String>['job A2', 'job B2']),
+    );
+    expect(
+      <String>[completed[4].name, completed[5].name],
+      unorderedEquals(<String>['job A3', 'job B3']),
+    );
+  });
 }
