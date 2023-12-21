@@ -7,10 +7,13 @@ import 'dart:convert' show Encoding;
 import 'dart:io' show Directory, Platform, stdout, SystemEncoding, stderr, ProcessStartMode;
 
 import 'package:async/async.dart' show StreamGroup;
+import 'package:process_runner/process_runner.dart';
 
 import 'process_runner.dart';
 
 abstract class DependentJob {
+  DependentJob({Iterable<DependentJob> dependsOn = const <DependentJob>{}}) : _dependsOn = dependsOn.toSet();
+
   /// The name of the job.
   String get name;
 
@@ -19,11 +22,45 @@ abstract class DependentJob {
   /// This job will not be scheduled until all of the jobs in this set have
   /// completed.
   ///
+  /// To add a dependency, call [addDependency] or [addDependencies].
+  ///
+  /// To remove a dependency, call [removeDependency] or [removeDependencies].
+  ///
+  /// Modifying the returned set will not affect the dependencies of this job.
+  ///
   /// Will throw if there is a dependency cycle, or if the given job has not
   /// been added to the pool.
   ///
   /// Defaults to an empty set.
-  Set<DependentJob> get dependsOn;
+  Set<DependentJob> get dependsOn => _dependsOn.toSet();
+  final Set<DependentJob> _dependsOn;
+
+  void addDependency(DependentJob job) {
+    if (job == this) {
+      throw ProcessRunnerException('A job cannot depend on itself');
+    }
+    if (_dependsOn.contains(job)) {
+      throw ProcessRunnerException('$job is already a dependency of $this');
+    }
+    if (job._dependsOn.contains(this)) {
+      throw ProcessRunnerException('$this is already a dependency of $job, no cycle allowed');
+    }
+    _dependsOn.add(job);
+  }
+
+  void removeDependency(DependentJob job) {
+    assert(_dependsOn.contains(job));
+    assert(job != this);
+    _dependsOn.remove(job);
+  }
+
+  void addDependencies(Iterable<DependentJob> jobs) {
+    jobs.forEach(addDependency);
+  }
+
+  void removeDependencies(Iterable<DependentJob> jobs) {
+    jobs.forEach(removeDependency);
+  }
 
   void addToQueue(List<DependentJob> jobs);
 }
@@ -44,7 +81,7 @@ class WorkerJob extends DependentJob {
     this.runInShell = false,
     Iterable<DependentJob>? dependsOn,
   })  : name = name ?? command.join(' '),
-        dependsOn = dependsOn?.toSet() ?? <DependentJob>{};
+        super(dependsOn: dependsOn?.toSet() ?? <DependentJob>{});
 
   /// The name of the job.
   ///
@@ -124,24 +161,18 @@ class WorkerJob extends DependentJob {
   }
 
   @override
-  Set<DependentJob> dependsOn;
-
-  @override
   String toString() => '${command.join(' ')} with ${dependsOn.length} dependencies';
 }
 
 class WorkerJobGroup extends DependentJob {
-  WorkerJobGroup(
-    this.workers, {
-    this.name = '<unknown>',
-    bool setDependencies = true,
-  })  : dependsOn = workers.toSet(),
-        assert(workers.isNotEmpty) {
-    // Make sure they run in series.
-    if (setDependencies) {
-      for (int i = 1; i < workers.length; i++) {
-        workers[i].dependsOn.add(workers[i - 1]);
-      }
+  WorkerJobGroup(Iterable<DependentJob> workers, {Iterable<DependentJob>? dependsOn, this.name = 'Group'})
+      : assert(workers.isNotEmpty),
+        workers = <DependentJob>[...workers],
+        super(dependsOn: <DependentJob>{...workers.toSet(), if (dependsOn != null) ...dependsOn}) {
+    // Make sure they run in series, and they depend on anything that the group
+    // depends on.
+    for (int i = 1; i < workers.length; i++) {
+      this.workers[i].addDependency(this.workers[i - 1]);
     }
   }
 
@@ -152,7 +183,20 @@ class WorkerJobGroup extends DependentJob {
   final List<DependentJob> workers;
 
   @override
-  final Set<DependentJob> dependsOn;
+  void addDependency(DependentJob job) {
+    for (final DependentJob worker in workers) {
+      worker.addDependency(job);
+    }
+    super.addDependency(job);
+  }
+
+  @override
+  void removeDependency(DependentJob job) {
+    for (final DependentJob worker in workers) {
+      worker.removeDependency(job);
+    }
+    super.removeDependency(job);
+  }
 
   @override
   void addToQueue(List<DependentJob> jobs) {

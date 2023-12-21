@@ -198,7 +198,7 @@ void main() {
     };
     fakeProcessManager.fakeResults = calls;
     final WorkerJobGroup groupA = WorkerJobGroup(
-      <WorkerJob>[
+      <DependentJob>[
         WorkerJob(<String>['commandA1', 'arg1', 'arg2'], name: 'job A1'),
         WorkerJob(<String>['commandA2', 'arg1', 'arg2'], name: 'job A2'),
         WorkerJob(<String>['commandA3', 'arg1', 'arg2'], name: 'job A3'),
@@ -206,14 +206,14 @@ void main() {
       name: 'Group A',
     );
     final WorkerJobGroup groupB = WorkerJobGroup(
-      <WorkerJob>[
+      <DependentJob>[
         WorkerJob(<String>['commandB1', 'arg1', 'arg2'], name: 'job B1'),
         WorkerJob(<String>['commandB2', 'arg1', 'arg2'], name: 'job B2'),
         WorkerJob(<String>['commandB3', 'arg1', 'arg2'], name: 'job B3'),
       ],
       name: 'Group B',
     );
-    groupB.dependsOn.add(groupA);
+    groupB.addDependency(groupA);
     final List<DependentJob> jobs = <DependentJob>[groupA, groupB];
     final List<WorkerJob> completed = await processPool.runToCompletion(jobs);
     expect(completed.length, equals(6));
@@ -233,19 +233,26 @@ void main() {
       completed.where((WorkerJob job) => job.result.exitCode == 0).map((WorkerJob job) => job.name),
       unorderedEquals(<String>['job B1', 'job A1', 'job A2', 'job A3']),
     );
-    // Either group A or B can come first, but the individual group tasks should
-    // be in order.
-    expect(
-      <String>[completed[0].name, completed[1].name],
-      unorderedEquals(<String>['job A1', 'job B1']),
-    );
-    expect(
-      <String>[completed[2].name, completed[3].name],
-      unorderedEquals(<String>['job A2', 'job B2']),
-    );
-    expect(
-      <String>[completed[4].name, completed[5].name],
-      unorderedEquals(<String>['job A3', 'job B3']),
-    );
+  });
+test("Jobs can't depend on themselves", () async {
+    fakeProcessManager = FakeProcessManager((String value) {});
+    processRunner = ProcessRunner(processManager: fakeProcessManager);
+    processPool = ProcessPool(processRunner: processRunner, printReport: null);
+    final Map<FakeInvocationRecord, List<ProcessResult>> calls = <FakeInvocationRecord, List<ProcessResult>>{
+      FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'], testPath): <ProcessResult>[
+        ProcessResult(0, 0, 'outputA1', 'stderrA1'),
+      ],
+    };
+    fakeProcessManager.fakeResults = calls;
+    final WorkerJob job = WorkerJob(<String>['commandA1', 'arg1', 'arg2'], name: 'job A1');
+
+    ProcessRunnerException? exception;
+    try {
+      job.addDependency(job);
+    } on ProcessRunnerException catch (e) {
+      exception = e;
+    }
+    expect(exception, isNotNull);
+    expect(exception!.message, equals('A job cannot depend on itself'));
   });
 }
