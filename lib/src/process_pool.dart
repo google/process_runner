@@ -11,6 +11,13 @@ import 'package:process_runner/process_runner.dart';
 
 import 'process_runner.dart';
 
+/// A type of job that can depend on other jobs.
+///
+/// This is the base type of [WorkerJob] and [WorkerJobGroup], which can all
+/// depend on each other.
+///
+/// Jobs are not allowed to depend on themselves, or have a dependency depend on
+/// them, even indirectly.
 abstract class DependentJob {
   DependentJob({Iterable<DependentJob> dependsOn = const <DependentJob>{}})
       : _dependsOn = dependsOn.toSet();
@@ -165,6 +172,14 @@ class WorkerJob extends DependentJob {
   String toString() => name;
 }
 
+/// A job that groups other jobs.
+///
+/// Each worker job, except the first, are made to be dependent upon the
+/// previous worker job.
+///
+/// This group job is automatically dependent upon all of the [workers] it manages.
+///
+/// It can manage other groups, or individual [WorkerJob]s.
 class WorkerJobGroup extends DependentJob {
   WorkerJobGroup(Iterable<DependentJob> workers,
       {Iterable<DependentJob>? dependsOn, this.name = 'Group'})
@@ -181,7 +196,7 @@ class WorkerJobGroup extends DependentJob {
   @override
   final String name;
 
-  /// The workers that will run in order because They depend on each other.
+  /// The workers that will run in order because they depend on each other.
   final List<DependentJob> workers;
 
   @override
