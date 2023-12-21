@@ -121,11 +121,9 @@ void stderrPrintReport(
   int completed,
   int inProgress,
   int pending,
-  int groupsPending,
   int failed,
 ) {
-  stderr.write(ProcessPool.defaultReportToString(
-      total, completed, inProgress, pending, groupsPending, failed));
+  stderr.write(ProcessPool.defaultReportToString(total, completed, inProgress, pending, failed));
 }
 
 Future<void> main(List<String> args) async {
@@ -311,7 +309,7 @@ Future<void> main(List<String> args) async {
             runInShell: runInShell,
             failOk: failOk,
           ));
-  final Iterable<Job> jobs = parallelJobs.cast<Job>().followedBy(groupedJobs);
+  final Iterable<DependentJob> jobs = parallelJobs.cast<DependentJob>().followedBy(groupedJobs);
   try {
     await for (final WorkerJob done in pool.startWorkers(jobs)) {
       if (printStdout) {
