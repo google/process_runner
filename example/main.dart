@@ -33,6 +33,7 @@ const String _kJobsOption = 'jobs';
 const String _kWorkingDirectoryOption = 'working-directory';
 const String _kCommandOption = 'command';
 const String _kSourceOption = 'source';
+const String _kGroupOption = 'group';
 const String _kAppName = 'process_runner';
 
 // This only works for escaped spaces and things in double or single quotes.
@@ -200,6 +201,17 @@ Future<void> main(List<String> args) async {
         'properly on the command line.',
   );
   parser.addMultiOption(
+    _kGroupOption,
+    abbr: 'g',
+    defaultsTo: <String>[],
+    help: 'Specify the name of a file to read grouped commands from, one per '
+        'line, as they would appear on the command line, with spaces escaped '
+        'or quoted. More than one --$_kGroupOption argument may be specified, '
+        'and each file will be run as a separate job group with the commands '
+        'in each group run in the order specified in the file, but in parallel '
+        'with other groups.',
+  );
+  parser.addMultiOption(
     _kSourceOption,
     abbr: 's',
     defaultsTo: <String>[],
@@ -207,7 +219,7 @@ Future<void> main(List<String> args) async {
         'they would appear on the command line, with spaces escaped or '
         'quoted. Specify "--$_kSourceOption -" to read from stdin. More than '
         'one --$_kSourceOption argument may be specified, and they will be '
-        'run as separate task groups in the order specified. The stdin '
+        'run as separate tasks in parallel. The stdin '
         '("--$_kSourceOption -") argument may only be specified once.',
   );
 
@@ -227,6 +239,7 @@ Future<void> main(List<String> args) async {
       '[--$_kWorkingDirectoryOption=<working directory>] '
       '[--$_kJobsOption=<num_worker_jobs>] '
       '[--$_kCommandOption="command" ...] '
+      '[--$_kGroupOption=<file> ...] '
       '[--$_kSourceOption=<file|"-"> ...]:',
     );
 
@@ -244,16 +257,93 @@ Future<void> main(List<String> args) async {
 
   // Collect the commands to be run from the command file(s).
   final List<String>? commandFiles = options[_kSourceOption] as List<String>?;
+  // Collect all the commands, both from input files, and from the command
+  // line. The command line commands are run first (although they could all
+  // potentially be executed simultaneously, depending on the number of workers,
+  // and number of commands).
+  final List<List<String>> fileCommands = getCommandsFromFiles(commandFiles);
+
+  final List<String> collectedCommands = <String>[
+    if (options[_kCommandOption] != null) ...options[_kCommandOption]! as List<String>,
+  ];
+  fileCommands
+      .forEach(collectedCommands.addAll); // Flatten the groups so they can be run in parallel.
+
+  final List<List<String>> splitCommands =
+      collectedCommands.map<List<String>>((String command) => splitIntoArgs(command)).toList();
+
+  // Collect the commands to be run from the group file(s).
+  final List<List<String>> groupCommands =
+      getCommandsFromFiles(options[_kGroupOption] as List<String>, allowStdin: false);
+
+  // Split each command entry into a list of strings, taking into account some
+  // simple quoting and escaping.
+  final List<List<List<String>>> splitGroupCommands = groupCommands
+      .map<List<List<String>>>(
+          (List<String> group) => group.map<List<String>>(splitIntoArgs).toList())
+      .toList();
+
+  // If the numWorkers is set to null, then the ProcessPool will automatically
+  // select the number of processes based on how many CPU cores the machine has.
+  final int? numWorkers = int.tryParse(options[_kJobsOption] as String? ?? '');
+  final Directory workingDirectory =
+      Directory((options[_kWorkingDirectoryOption] as String?) ?? '.');
+
+  final ProcessPool pool = ProcessPool(
+    numWorkers: numWorkers,
+    printReport: printReport ? stderrPrintReport : null,
+  );
+  final Iterable<WorkerJobGroup> groupedJobs =
+      splitGroupCommands.map<WorkerJobGroup>((List<List<String>> group) {
+    return WorkerJobGroup(group
+        .map<WorkerJob>((List<String> command) => WorkerJob(
+              command,
+              workingDirectory: workingDirectory,
+              runInShell: runInShell,
+              failOk: failOk,
+            ))
+        .toList());
+  });
+  final Iterable<WorkerJob> parallelJobs =
+      splitCommands.map<WorkerJob>((List<String> command) => WorkerJob(
+            command,
+            workingDirectory: workingDirectory,
+            runInShell: runInShell,
+            failOk: failOk,
+          ));
+  final Iterable<Job> jobs = parallelJobs.cast<Job>().followedBy(groupedJobs);
+  try {
+    await for (final WorkerJob done in pool.startWorkers(jobs)) {
+      if (printStdout) {
+        stdout.write(done.result.stdout);
+      }
+      if (printStderr) {
+        stderr.write(done.result.stderr);
+      }
+    }
+  } on ProcessRunnerException catch (e) {
+    if (!failOk) {
+      stderr.writeln('$_kAppName execution failed: $e');
+      exitCode = e.exitCode;
+      return;
+    }
+  }
+
+  // Return non-zero exit code if there were jobs that failed.
+  exitCode = pool.failedJobs != 0 ? 1 : 0;
+}
+
+List<List<String>> getCommandsFromFiles(List<String>? commandFiles, {bool allowStdin = false}) {
   final List<List<String>> fileCommands = <List<String>>[];
   if (commandFiles != null) {
     bool sawStdinAlready = false;
     for (final String commandFile in commandFiles) {
       // Read from stdin if the --file option is set to '-'.
-      if (commandFile == '-') {
+      if (allowStdin && commandFile == '-') {
         if (sawStdinAlready) {
           stderr.writeln('ERROR: The stdin can only be specified once with "--$_kSourceOption -"');
           exitCode = 1;
-          return;
+          return <List<String>>[];
         }
         sawStdinAlready = true;
         String? line = stdin.readLineSync();
@@ -274,61 +364,5 @@ Future<void> main(List<String> args) async {
       }
     }
   }
-
-  // Collect all the commands, both from the input file, and from the command
-  // line. The command line commands come first (although they could all
-  // potentially be executed simultaneously, depending on the number of workers,
-  // and number of commands).
-  final List<List<String>> commandGroups = <List<String>>[
-    if (options[_kCommandOption] != null) options[_kCommandOption]! as List<String>,
-    ...fileCommands,
-  ];
-
-  // Split each command entry into a list of strings, taking into account some
-  // simple quoting and escaping.
-  final List<List<List<String>>> splitCommands = commandGroups
-      .map<List<List<String>>>(
-          (List<String> group) => group.map<List<String>>(splitIntoArgs).toList())
-      .toList();
-
-  // If the numWorkers is set to null, then the ProcessPool will automatically
-  // select the number of processes based on how many CPU cores the machine has.
-  final int? numWorkers = int.tryParse(options[_kJobsOption] as String? ?? '');
-  final Directory workingDirectory =
-      Directory((options[_kWorkingDirectoryOption] as String?) ?? '.');
-
-  final ProcessPool pool = ProcessPool(
-    numWorkers: numWorkers,
-    printReport: printReport ? stderrPrintReport : null,
-  );
-  final Iterable<WorkerJobGroup> jobs =
-      splitCommands.map<WorkerJobGroup>((List<List<String>> group) {
-    return WorkerJobGroup(group
-        .map<WorkerJob>((List<String> command) => WorkerJob(
-              command,
-              workingDirectory: workingDirectory,
-              runInShell: runInShell,
-              failOk: failOk,
-            ))
-        .toList());
-  });
-  try {
-    await for (final WorkerJob done in pool.startWorkers(jobs)) {
-      if (printStdout) {
-        stdout.write(done.result.stdout);
-      }
-      if (printStderr) {
-        stderr.write(done.result.stderr);
-      }
-    }
-  } on ProcessRunnerException catch (e) {
-    if (!failOk) {
-      stderr.writeln('$_kAppName execution failed: $e');
-      exitCode = e.exitCode;
-      return;
-    }
-  }
-
-  // Return non-zero exit code if there were jobs that failed.
-  exitCode = pool.failedJobs != 0 ? 1 : 0;
+  return fileCommands;
 }
