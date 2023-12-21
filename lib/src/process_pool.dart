@@ -174,34 +174,31 @@ class WorkerJob extends DependentJob {
 
 /// A job that groups other jobs.
 ///
-/// Each worker job, except the first, are made to be dependent upon the
-/// previous worker job.
+/// The [jobs] will be run in the order given to the constructor.
 ///
-/// This group job is automatically dependent upon all of the [workers] it manages.
-///
-/// It can manage other groups, or individual [WorkerJob]s.
+/// This group job finishes when all the workers finish.
 class WorkerJobGroup extends DependentJob {
-  WorkerJobGroup(Iterable<DependentJob> workers,
+  WorkerJobGroup(Iterable<DependentJob> jobs,
       {Iterable<DependentJob>? dependsOn, this.name = 'Group'})
-      : assert(workers.isNotEmpty),
-        workers = <DependentJob>[...workers],
-        super(dependsOn: <DependentJob>{...workers.toSet(), if (dependsOn != null) ...dependsOn}) {
+      : assert(jobs.isNotEmpty),
+        jobs = jobs.toList(),
+        super(dependsOn: <DependentJob>{...jobs.toSet(), if (dependsOn != null) ...dependsOn}) {
     // Make sure they run in series, and they depend on anything that the group
     // depends on.
-    for (int i = 1; i < workers.length; i++) {
-      this.workers[i].addDependency(this.workers[i - 1]);
+    for (int i = 1; i < this.jobs.length; i++) {
+      this.jobs[i].addDependency(this.jobs[i - 1]);
     }
   }
 
   @override
   final String name;
 
-  /// The workers that will run in order because they depend on each other.
-  final List<DependentJob> workers;
+  /// The jobs that will run in order because they depend on each other.
+  final List<DependentJob> jobs;
 
   @override
   void addDependency(DependentJob job) {
-    for (final DependentJob worker in workers) {
+    for (final DependentJob worker in jobs) {
       worker.addDependency(job);
     }
     super.addDependency(job);
@@ -209,7 +206,7 @@ class WorkerJobGroup extends DependentJob {
 
   @override
   void removeDependency(DependentJob job) {
-    for (final DependentJob worker in workers) {
+    for (final DependentJob worker in jobs) {
       worker.removeDependency(job);
     }
     super.removeDependency(job);
@@ -217,12 +214,12 @@ class WorkerJobGroup extends DependentJob {
 
   @override
   void addToQueue(List<DependentJob> jobs) {
-    jobs.addAll(workers);
+    jobs.addAll(jobs);
     jobs.add(this);
   }
 
   @override
-  String toString() => '${name.isNotEmpty ? name : 'Group'} with ${workers.length} members';
+  String toString() => '${name.isNotEmpty ? name : 'Group'} with ${jobs.length} members';
 }
 
 /// The type of the reporting function for [ProcessPool.printReport].
@@ -373,7 +370,7 @@ class ProcessPool {
     _failedJobs.add(job);
   }
 
-  DependentJob? _getNextInependentJob() {
+  DependentJob? _getNextIndependentJob() {
     if (_pendingJobs.isEmpty) {
       return null;
     }
@@ -403,19 +400,21 @@ class ProcessPool {
 
   Stream<WorkerJob> _startWorker() async* {
     while (_pendingJobs.isNotEmpty) {
-      final DependentJob? newJob = _getNextInependentJob();
+      final DependentJob? newJob = _getNextIndependentJob();
       if (newJob == null && _inProgressJobs > 0) {
         // All the dependent jobs are still pending.
         // Small pause to let pending jobs complete, so we don't just spin.
         await Future<void>.delayed(const Duration(milliseconds: 10));
         continue;
       }
-      if (newJob is WorkerJob) {
-        // Just finish up any groups immediately now that all of their workers
-        // are done. We keep them until now just in case a job depends on a
-        // group. Don't yield these jobs either, since we don't want groups in
-        // the output, just completed WorkerJobs.
-        _completedJobs.add(newJob);
+      if (newJob is! WorkerJob) {
+        if (newJob is WorkerJobGroup) {
+          // Just finish up any groups immediately now that all of their workers
+          // are done. We keep them until now just in case a job depends on a
+          // group. Don't yield these jobs either, since we don't want groups in
+          // the output, just completed WorkerJobs.
+          _completedJobs.add(newJob);
+        }
         continue;
       }
       _inProgressJobs++;
