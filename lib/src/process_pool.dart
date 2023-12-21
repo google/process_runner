@@ -410,14 +410,12 @@ class ProcessPool {
         await Future<void>.delayed(const Duration(milliseconds: 10));
         continue;
       }
-      if (newJob is! WorkerJob) {
+      if (newJob is WorkerJob) {
         // Just finish up any groups immediately now that all of their workers
         // are done. We keep them until now just in case a job depends on a
         // group. Don't yield these jobs either, since we don't want groups in
         // the output, just completed WorkerJobs.
-        if (newJob is WorkerJobGroup) {
-          _completedJobs.add(newJob);
-        }
+        _completedJobs.add(newJob);
         continue;
       }
       _inProgressJobs++;

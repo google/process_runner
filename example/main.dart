@@ -309,7 +309,7 @@ Future<void> main(List<String> args) async {
             runInShell: runInShell,
             failOk: failOk,
           ));
-  final Iterable<DependentJob> jobs = parallelJobs.cast<DependentJob>().followedBy(groupedJobs);
+  final Iterable<DependentJob> jobs = <DependentJob>[...parallelJobs, ...groupedJobs];
   try {
     await for (final WorkerJob done in pool.startWorkers(jobs)) {
       if (printStdout) {
