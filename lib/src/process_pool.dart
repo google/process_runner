@@ -16,8 +16,9 @@ import 'process_runner.dart';
 /// This is the base type of [WorkerJob] and [WorkerJobGroup], which can all
 /// depend on each other.
 ///
-/// Jobs are not allowed to depend on themselves, or have a dependency depend on
-/// them, even indirectly.
+/// Jobs are not allowed to have a dependency cycle, meaning that they can't
+/// depend on themselves, directly or indirectly. Will throw a
+/// [ProcessRunnerException] if a cycle is detected.
 abstract class DependentJob {
   DependentJob({Iterable<DependentJob> dependsOn = const <DependentJob>{}})
       : _dependsOn = dependsOn.toSet();
@@ -335,7 +336,12 @@ class ProcessPool {
       return;
     }
     printReport?.call(
-        totalJobs, _completedJobs.length, _inProgressJobs, _pendingJobs.length, _failedJobs.length);
+      totalJobs,
+      _completedJobs.length,
+      _inProgressJobs,
+      _pendingJobs.length,
+      _failedJobs.length,
+    );
   }
 
   static String defaultReportToString(

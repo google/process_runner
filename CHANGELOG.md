@@ -2,8 +2,8 @@
 
 ## 4.2.0
 
-* Added `WorkerJobGroup` for running a group of dependent tasks in order.
-* Added the ability to have one job depend on another,
+* Adds `WorkerJobGroup` for running a group of dependent tasks in order.
+* Adds the ability to have one job depend on another,
 so that order between jobs can be enforced.
 
 ## 4.1.4
