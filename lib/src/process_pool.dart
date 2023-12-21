@@ -7,14 +7,119 @@ import 'dart:convert' show Encoding;
 import 'dart:io' show Directory, Platform, stdout, SystemEncoding, stderr, ProcessStartMode;
 
 import 'package:async/async.dart' show StreamGroup;
+import 'package:process_runner/process_runner.dart';
 
 import 'process_runner.dart';
+
+/// A type of job that can depend on other jobs.
+///
+/// This is the base type of [WorkerJob] and [WorkerJobGroup], which can all
+/// depend on each other.
+///
+/// Jobs are not allowed to have a dependency cycle, meaning that they can't
+/// depend on themselves, directly or indirectly. Will throw a
+/// [ProcessRunnerException] if a cycle is detected.
+abstract class DependentJob {
+  DependentJob({Iterable<DependentJob> dependsOn = const <DependentJob>{}})
+      : _dependsOn = dependsOn.toSet();
+
+  /// The name of the job.
+  String get name;
+
+  /// Other jobs that this job depends on.
+  ///
+  /// This job will not be scheduled until all of the jobs in this set have
+  /// completed.
+  ///
+  /// To add a dependency, call [addDependency] or [addDependencies].
+  ///
+  /// To remove a dependency, call [removeDependency] or [removeDependencies].
+  ///
+  /// Modifying the returned set will not affect the dependencies of this job.
+  ///
+  /// Will throw if there is a dependency cycle, or if the given job has not
+  /// been added to the pool.
+  ///
+  /// Defaults to an empty set.
+  Set<DependentJob> get dependsOn => _dependsOn.toSet();
+  final Set<DependentJob> _dependsOn;
+
+  /// Add a dependency to this job.
+  ///
+  /// The given job must complete before this job will executed.
+  ///
+  /// See also:
+  ///
+  /// * [removeDependency] which removes a single job.
+  /// * [addDependencies] which adds all of the given jobs as dependencies
+  ///   of this job.
+  void addDependency(DependentJob job) {
+    if (job == this) {
+      throw ProcessRunnerException('A job cannot depend on itself');
+    }
+    if (_dependsOn.contains(job)) {
+      throw ProcessRunnerException('$job is already a dependency of $this');
+    }
+    if (job._dependsOn.contains(this)) {
+      throw ProcessRunnerException('$this is already a dependency of $job, no cycle allowed');
+    }
+    _dependsOn.add(job);
+  }
+
+  /// Remove a dependency to this job that was added with [addDependency].
+  ///
+  /// If the given job is not a dependency of this job, this will assert.
+  ///
+  /// See also:
+  ///
+  /// * [addDependency] which adds a single job.
+  /// * [removeDependencies] which removes all of the given jobs as dependencies
+  ///   of this job.
+  void removeDependency(DependentJob job) {
+    assert(_dependsOn.contains(job));
+    assert(job != this);
+    _dependsOn.remove(job);
+  }
+
+  /// Adds all of the [jobs] as dependencies of this job.
+  ///
+  /// See also:
+  ///
+  /// * [addDependency] which adds a single job.
+  /// * [removeDependencies] which removes all of the given jobs as dependencies
+  ///   of this job.
+  void addDependencies(Iterable<DependentJob> jobs) {
+    // don't just add it to _dependsOn so that subclass addDependency will be
+    // called.
+    jobs.forEach(addDependency);
+  }
+
+  /// Removes all of the given [jobs] as dependencies of this job.
+  ///
+  /// See also:
+  ///
+  /// * [removeDependency] which removes a single job.
+  /// * [addDependencies] which adds all of the given jobs as dependencies
+  ///   of this job.
+  void removeDependencies(Iterable<DependentJob> jobs) {
+    // don't just remove it from _dependsOn so that subclass removeDependency
+    // will be called.
+    jobs.forEach(removeDependency);
+  }
+
+  /// Adds this job, and any jobs it manages to the given [jobQueue].
+  ///
+  /// This is called by [ProcessPool.startWorkers] and
+  /// [ProcessPool.runToCompletion] to expand the jobs for this worker into
+  /// individual jobs.
+  void addToQueue(List<DependentJob> jobQueue);
+}
 
 /// A class that represents a job to be done by a [ProcessPool].
 ///
 /// Create a list of these to pass to [ProcessPool.startWorkers] or
 /// [ProcessPool.runToCompletion].
-class WorkerJob {
+class WorkerJob extends DependentJob {
   WorkerJob(
     this.command, {
     String? name,
@@ -24,11 +129,14 @@ class WorkerJob {
     this.stdinRaw,
     this.failOk = true,
     this.runInShell = false,
-  }) : name = name ?? command.join(' ');
+    Iterable<DependentJob>? dependsOn,
+  })  : name = name ?? command.join(' '),
+        super(dependsOn: dependsOn?.toSet() ?? <DependentJob>{});
 
   /// The name of the job.
   ///
-  /// Defaults to the args joined by a space.
+  /// Defaults to the command args joined by spaces.
+  @override
   final String name;
 
   /// The name and arguments for the process, including the command name as
@@ -98,9 +206,62 @@ class WorkerJob {
   Exception? exception;
 
   @override
-  String toString() {
-    return command.join(' ');
+  void addToQueue(List<DependentJob> jobQueue) {
+    jobQueue.add(this);
   }
+
+  @override
+  String toString() => name;
+}
+
+/// A job that groups other jobs.
+///
+/// The [jobs] will be run in the order given to the constructor.
+///
+/// This group job finishes when all the workers finish.
+class WorkerJobGroup extends DependentJob {
+  WorkerJobGroup(Iterable<DependentJob> jobs,
+      {Iterable<DependentJob>? dependsOn, this.name = 'Group'})
+      : assert(jobs.isNotEmpty),
+        jobs = <DependentJob>[...jobs],
+        super(dependsOn: <DependentJob>{...jobs.toSet(), if (dependsOn != null) ...dependsOn}) {
+    // Make sure they run in series, and they depend on anything that the group
+    // depends on.
+    for (int i = 1; i < this.jobs.length; i++) {
+      this.jobs[i].addDependency(this.jobs[i - 1]);
+    }
+  }
+
+  @override
+  final String name;
+
+  /// The jobs that will run in order because they depend on each other.
+  final List<DependentJob> jobs;
+
+  @override
+  void addDependency(DependentJob job) {
+    for (final DependentJob worker in jobs) {
+      worker.addDependency(job);
+    }
+    super.addDependency(job);
+  }
+
+  @override
+  void removeDependency(DependentJob job) {
+    for (final DependentJob worker in jobs) {
+      worker.removeDependency(job);
+    }
+    super.removeDependency(job);
+  }
+
+  @override
+  void addToQueue(List<DependentJob> jobQueue) {
+    jobQueue.addAll(jobs);
+    jobQueue.add(this);
+  }
+
+  @override
+  String toString() => '${name.isNotEmpty ? name : 'Group'} with ${jobs.length} members';
 }
 
 /// The type of the reporting function for [ProcessPool.printReport].
@@ -166,16 +327,21 @@ class ProcessPool {
   int get totalJobs =>
       _completedJobs.length + _inProgressJobs + _pendingJobs.length + _failedJobs.length;
 
-  final List<WorkerJob> _pendingJobs = <WorkerJob>[];
-  final List<WorkerJob> _failedJobs = <WorkerJob>[];
-  final List<WorkerJob> _completedJobs = <WorkerJob>[];
+  final List<DependentJob> _pendingJobs = <DependentJob>[];
+  final List<DependentJob> _failedJobs = <DependentJob>[];
+  final List<DependentJob> _completedJobs = <DependentJob>[];
 
   void _printReportIfNeeded() {
     if (printReport == null) {
       return;
     }
     printReport?.call(
-        totalJobs, _completedJobs.length, _inProgressJobs, _pendingJobs.length, _failedJobs.length);
+      totalJobs,
+      _completedJobs.length,
+      _inProgressJobs,
+      _pendingJobs.length,
+      _failedJobs.length,
+    );
   }
 
   static String defaultReportToString(
@@ -208,6 +374,18 @@ class ProcessPool {
 
   Future<WorkerJob> _performJob(WorkerJob job) async {
     try {
+      if (job.dependsOn.intersection(_failedJobs.toSet()).isNotEmpty) {
+        // A dependent job has failed, so just immediately fail this one instead
+        // of starting it.
+        _addFailedJob(
+          job,
+          ProcessRunnerException(
+            'One or more dependent jobs failed.',
+            result: ProcessRunnerResult.failed,
+          ),
+        );
+        return job;
+      }
       job.result = await processRunner.runProcess(
         job.command,
         workingDirectory: job.workingDirectory ?? processRunner.defaultWorkingDirectory,
@@ -222,9 +400,7 @@ class ProcessPool {
       );
       _completedJobs.add(job);
     } on ProcessRunnerException catch (e) {
-      job.result = e.result ?? ProcessRunnerResult.failed;
-      job.exception = e;
-      _failedJobs.add(job);
+      _addFailedJob(job, e);
       if (!job.failOk) {
         rethrow;
       }
@@ -235,11 +411,59 @@ class ProcessPool {
     return job;
   }
 
+  void _addFailedJob(WorkerJob job, ProcessRunnerException e) {
+    job.result = e.result ?? ProcessRunnerResult.failed;
+    job.exception = e;
+    _failedJobs.add(job);
+  }
+
+  DependentJob? _getNextIndependentJob() {
+    if (_pendingJobs.isEmpty) {
+      return null;
+    }
+    if (inProgressJobs == 0 && _completedJobs.isEmpty && _failedJobs.isEmpty) {
+      final int firstIndependent =
+          _pendingJobs.indexWhere((DependentJob element) => element.dependsOn.isEmpty);
+      if (firstIndependent == -1) {
+        throw ProcessRunnerException(
+          'Nothing is in progress, and no pending jobs are without dependencies. '
+          'At least one must have no dependencies so that something can start.',
+        );
+      }
+      return _pendingJobs.removeAt(firstIndependent);
+    }
+    // Go through the list of jobs, looking for the first one where all of its
+    // dependencies have been satisfied by appearing in the _completedJobs list.
+    final Set<DependentJob> allFinishedJobs = _completedJobs.toSet().union(_failedJobs.toSet());
+    for (int i = 0; i < _pendingJobs.length; i += 1) {
+      final DependentJob job = _pendingJobs[i];
+      if (job.dependsOn.isEmpty || job.dependsOn.difference(allFinishedJobs.toSet()).isEmpty) {
+        return _pendingJobs.removeAt(i);
+      }
+    }
+    // This can be the case if all the dependent jobs are still running.
+    return null;
+  }
+
   Stream<WorkerJob> _startWorker() async* {
     while (_pendingJobs.isNotEmpty) {
-      final WorkerJob newJob = _pendingJobs.removeAt(0);
-      _inProgressJobs++;
-      yield await _performJob(newJob);
+      final DependentJob? newJob = _getNextIndependentJob();
+      if (newJob == null && _inProgressJobs > 0) {
+        // All the dependent jobs are still pending.
+        // Small pause to let pending jobs complete, so we don't just spin.
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        continue;
+      }
+      if (newJob is WorkerJobGroup) {
+        // Just finish up any groups immediately now that all of their workers
+        // are done. We keep them until now just in case a job depends on a
+        // group. Don't yield these jobs either, since we don't want groups in
+        // the output, just completed WorkerJobs.
+        _completedJobs.add(newJob);
+      } else if (newJob is WorkerJob) {
+        _inProgressJobs++;
+        yield await _performJob(newJob);
+      }
     }
   }
 
@@ -247,7 +471,7 @@ class ProcessPool {
   /// when all have been completed.
   ///
   /// To listen to jobs as they are completed, use [startWorkers] instead.
-  Future<List<WorkerJob>> runToCompletion(List<WorkerJob> jobs) async {
+  Future<List<WorkerJob>> runToCompletion(Iterable<DependentJob> jobs) async {
     final List<WorkerJob> results = <WorkerJob>[];
     await startWorkers(jobs).forEach(results.add);
     return results;
@@ -256,15 +480,22 @@ class ProcessPool {
   /// Runs the `jobs` in parallel, with at most [numWorkers] jobs running
   /// simultaneously.
   ///
+  /// If the supplied job is a [WorkerJobGroup], then the jobs in the task
+  /// group will be run so that the tasks are executed in order (but still in
+  /// parallel with other jobs).
+  ///
   /// Returns the the jobs in a [Stream] as they are completed.
-  Stream<WorkerJob> startWorkers(List<WorkerJob> jobs) async* {
+  Stream<WorkerJob> startWorkers(Iterable<DependentJob> jobs) async* {
     assert(_inProgressJobs == 0);
     _failedJobs.clear();
     _completedJobs.clear();
     if (jobs.isEmpty) {
       return;
     }
-    _pendingJobs.addAll(jobs);
+    for (final DependentJob job in jobs) {
+      job.addToQueue(_pendingJobs);
+    }
+    _verifyDependencies();
     final List<Stream<WorkerJob>> streams = <Stream<WorkerJob>>[];
     for (int i = 0; i < numWorkers; ++i) {
       if (_pendingJobs.isEmpty) {
@@ -275,8 +506,49 @@ class ProcessPool {
     await for (final WorkerJob job in StreamGroup.merge<WorkerJob>(streams)) {
       yield job;
     }
-    assert(_inProgressJobs == 0);
     assert(_pendingJobs.isEmpty);
+    assert(_inProgressJobs == 0);
+    _printReportIfNeeded();
     return;
+  }
+
+  bool _hasDependencyLoop(DependentJob job, {required Set<DependentJob> visited}) {
+    if (visited.contains(job)) {
+      return true;
+    }
+    visited.add(job);
+    for (final DependentJob dependentJob in job.dependsOn) {
+      if (_hasDependencyLoop(dependentJob, visited: visited)) {
+        return true;
+      }
+    }
+    visited.remove(job);
+    return false;
+  }
+
+  void _verifyDependencies() {
+    // Dependencies for all jobs must also appear in the pending jobs.
+    assert(
+        _completedJobs.isEmpty && _inProgressJobs == 0, "Can't verify dependencies once started.");
+    final Set<DependentJob> pending = _pendingJobs.toSet();
+    for (final DependentJob job in pending) {
+      final Set<DependentJob> diff = job.dependsOn.difference(pending);
+      if (diff.isNotEmpty) {
+        throw ProcessRunnerException(
+            "${job.name} has dependent jobs that aren't scheduled to be run:\n"
+            "  ${diff.map<String>((DependentJob item) => item.name).join('\n  ')}");
+      }
+    }
+    // Check for dependency loops.
+    for (final DependentJob job in pending) {
+      final Set<DependentJob> visited = <DependentJob>{};
+      if (_hasDependencyLoop(job, visited: visited)) {
+        throw ProcessRunnerException('Illegal dependency loop detected:\n'
+            '  ${<DependentJob>[
+          ...visited,
+          job
+        ].map((DependentJob item) => item.name).join('\n  ')}');
+      }
+    }
   }
 }
