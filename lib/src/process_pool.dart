@@ -43,6 +43,15 @@ abstract class DependentJob {
   Set<DependentJob> get dependsOn => _dependsOn.toSet();
   final Set<DependentJob> _dependsOn;
 
+  /// Add a dependency to this job.
+  ///
+  /// The given job must complete before this job will executed.
+  ///
+  /// See also:
+  ///
+  /// * [removeDependency] which removes a single job.
+  /// * [addDependencies] which adds all of the given jobs as dependencies
+  ///   of this job.
   void addDependency(DependentJob job) {
     if (job == this) {
       throw ProcessRunnerException('A job cannot depend on itself');
@@ -56,21 +65,53 @@ abstract class DependentJob {
     _dependsOn.add(job);
   }
 
+  /// Remove a dependency to this job that was added with [addDependency].
+  ///
+  /// If the given job is not a dependency of this job, this will assert.
+  ///
+  /// See also:
+  ///
+  /// * [addDependency] which adds a single job.
+  /// * [removeDependencies] which removes all of the given jobs as dependencies
+  ///   of this job.
   void removeDependency(DependentJob job) {
     assert(_dependsOn.contains(job));
     assert(job != this);
     _dependsOn.remove(job);
   }
 
+  /// Adds all of the [jobs] as dependencies of this job.
+  ///
+  /// See also:
+  ///
+  /// * [addDependency] which adds a single job.
+  /// * [removeDependencies] which removes all of the given jobs as dependencies
+  ///   of this job.
   void addDependencies(Iterable<DependentJob> jobs) {
+    // don't just add it to _dependsOn so that subclass addDependency will be
+    // called.
     jobs.forEach(addDependency);
   }
 
+  /// Removes all of the given [jobs] as dependencies of this job.
+  ///
+  /// See also:
+  ///
+  /// * [removeDependency] which removes a single job.
+  /// * [addDependencies] which adds all of the given jobs as dependencies
+  ///   of this job.
   void removeDependencies(Iterable<DependentJob> jobs) {
+    // don't just remove it from _dependsOn so that subclass removeDependency
+    // will be called.
     jobs.forEach(removeDependency);
   }
 
-  void addToQueue(List<DependentJob> jobs);
+  /// Adds this job, and any jobs it manages to the given [jobQueue].
+  ///
+  /// This is called by [ProcessPool.startWorkers] and
+  /// [ProcessPool.runToCompletion] to expand the jobs for this worker into
+  /// individual jobs.
+  void addToQueue(List<DependentJob> jobQueue);
 }
 
 /// A class that represents a job to be done by a [ProcessPool].
@@ -164,8 +205,8 @@ class WorkerJob extends DependentJob {
   Exception? exception;
 
   @override
-  void addToQueue(List<DependentJob> jobs) {
-    jobs.add(this);
+  void addToQueue(List<DependentJob> jobQueue) {
+    jobQueue.add(this);
   }
 
   @override
@@ -181,7 +222,7 @@ class WorkerJobGroup extends DependentJob {
   WorkerJobGroup(Iterable<DependentJob> jobs,
       {Iterable<DependentJob>? dependsOn, this.name = 'Group'})
       : assert(jobs.isNotEmpty),
-        jobs = jobs.toList(),
+        jobs = <DependentJob>[...jobs],
         super(dependsOn: <DependentJob>{...jobs.toSet(), if (dependsOn != null) ...dependsOn}) {
     // Make sure they run in series, and they depend on anything that the group
     // depends on.
@@ -213,9 +254,9 @@ class WorkerJobGroup extends DependentJob {
   }
 
   @override
-  void addToQueue(List<DependentJob> jobs) {
-    jobs.addAll(jobs);
-    jobs.add(this);
+  void addToQueue(List<DependentJob> jobQueue) {
+    jobQueue.addAll(jobs);
+    jobQueue.add(this);
   }
 
   @override
@@ -407,18 +448,16 @@ class ProcessPool {
         await Future<void>.delayed(const Duration(milliseconds: 10));
         continue;
       }
-      if (newJob is! WorkerJob) {
-        if (newJob is WorkerJobGroup) {
-          // Just finish up any groups immediately now that all of their workers
-          // are done. We keep them until now just in case a job depends on a
-          // group. Don't yield these jobs either, since we don't want groups in
-          // the output, just completed WorkerJobs.
-          _completedJobs.add(newJob);
-        }
-        continue;
+      if (newJob is WorkerJobGroup) {
+        // Just finish up any groups immediately now that all of their workers
+        // are done. We keep them until now just in case a job depends on a
+        // group. Don't yield these jobs either, since we don't want groups in
+        // the output, just completed WorkerJobs.
+        _completedJobs.add(newJob);
+      } else if (newJob is WorkerJob) {
+        _inProgressJobs++;
+        yield await _performJob(newJob);
       }
-      _inProgressJobs++;
-      yield await _performJob(newJob);
     }
   }
 
