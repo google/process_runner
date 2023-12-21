@@ -12,7 +12,8 @@ import 'package:process_runner/process_runner.dart';
 import 'process_runner.dart';
 
 abstract class DependentJob {
-  DependentJob({Iterable<DependentJob> dependsOn = const <DependentJob>{}}) : _dependsOn = dependsOn.toSet();
+  DependentJob({Iterable<DependentJob> dependsOn = const <DependentJob>{}})
+      : _dependsOn = dependsOn.toSet();
 
   /// The name of the job.
   String get name;
@@ -161,11 +162,12 @@ class WorkerJob extends DependentJob {
   }
 
   @override
-  String toString() => '${command.join(' ')} with ${dependsOn.length} dependencies';
+  String toString() => name;
 }
 
 class WorkerJobGroup extends DependentJob {
-  WorkerJobGroup(Iterable<DependentJob> workers, {Iterable<DependentJob>? dependsOn, this.name = 'Group'})
+  WorkerJobGroup(Iterable<DependentJob> workers,
+      {Iterable<DependentJob>? dependsOn, this.name = 'Group'})
       : assert(workers.isNotEmpty),
         workers = <DependentJob>[...workers],
         super(dependsOn: <DependentJob>{...workers.toSet(), if (dependsOn != null) ...dependsOn}) {
@@ -268,7 +270,8 @@ class ProcessPool {
   int get failedJobs => _failedJobs.length;
 
   /// Returns the total number of jobs that have been given to this pool.
-  int get totalJobs => _completedJobs.length + _inProgressJobs + _pendingJobs.length + _failedJobs.length;
+  int get totalJobs =>
+      _completedJobs.length + _inProgressJobs + _pendingJobs.length + _failedJobs.length;
 
   final List<DependentJob> _pendingJobs = <DependentJob>[];
   final List<DependentJob> _failedJobs = <DependentJob>[];
@@ -278,7 +281,8 @@ class ProcessPool {
     if (printReport == null) {
       return;
     }
-    printReport?.call(totalJobs, _completedJobs.length, _inProgressJobs, _pendingJobs.length, _failedJobs.length);
+    printReport?.call(
+        totalJobs, _completedJobs.length, _inProgressJobs, _pendingJobs.length, _failedJobs.length);
   }
 
   static String defaultReportToString(
@@ -288,7 +292,8 @@ class ProcessPool {
     int pending,
     int failed,
   ) {
-    final String percent = total == 0 ? '100' : ((100 * (completed + failed)) ~/ total).toString().padLeft(3);
+    final String percent =
+        total == 0 ? '100' : ((100 * (completed + failed)) ~/ total).toString().padLeft(3);
     final String completedStr = completed.toString().padLeft(3);
     final String totalStr = total.toString().padRight(3);
     final String inProgressStr = inProgress.toString().padLeft(2);
@@ -358,7 +363,8 @@ class ProcessPool {
       return null;
     }
     if (inProgressJobs == 0 && _completedJobs.isEmpty && _failedJobs.isEmpty) {
-      final int firstIndependent = _pendingJobs.indexWhere((DependentJob element) => element.dependsOn.isEmpty);
+      final int firstIndependent =
+          _pendingJobs.indexWhere((DependentJob element) => element.dependsOn.isEmpty);
       if (firstIndependent == -1) {
         throw ProcessRunnerException(
           'Nothing is in progress, and no pending jobs are without dependencies. '
@@ -450,37 +456,29 @@ class ProcessPool {
   }
 
   bool _hasDependencyLoop(DependentJob job, {required Set<DependentJob> visited}) {
-    // Check if the job has already been visited, indicating a potential loop
     if (visited.contains(job)) {
       return true;
     }
-
-    // Add the current job to visited set for tracking
     visited.add(job);
-
-    // Loop through each dependency of the current job
     for (final DependentJob dependentJob in job.dependsOn) {
-      // Recursively check for loops in dependent jobs
       if (_hasDependencyLoop(dependentJob, visited: visited)) {
         return true;
       }
     }
-
-    // Remove the current job from visited set after processing its dependencies
     visited.remove(job);
-
-    // No loop found after checking all dependencies
     return false;
   }
 
   void _verifyDependencies() {
     // Dependencies for all jobs must also appear in the pending jobs.
-    assert(_completedJobs.isEmpty && _inProgressJobs == 0, "Can't verify dependencies once started.");
+    assert(
+        _completedJobs.isEmpty && _inProgressJobs == 0, "Can't verify dependencies once started.");
     final Set<DependentJob> pending = _pendingJobs.toSet();
     for (final DependentJob job in pending) {
       final Set<DependentJob> diff = job.dependsOn.difference(pending);
       if (diff.isNotEmpty) {
-        throw ProcessRunnerException("${job.name} has dependent jobs that aren't scheduled to be run:\n"
+        throw ProcessRunnerException(
+            "${job.name} has dependent jobs that aren't scheduled to be run:\n"
             "  ${diff.map<String>((DependentJob item) => item.name).join('\n  ')}");
       }
     }
@@ -488,12 +486,11 @@ class ProcessPool {
     for (final DependentJob job in pending) {
       final Set<DependentJob> visited = <DependentJob>{};
       if (_hasDependencyLoop(job, visited: visited)) {
-        throw ProcessRunnerException('Dependency loop detected in:\n'
-            '  ${job.name}: $job\n'
-            'Which depends on:\n'
-            "  ${job.dependsOn.map((DependentJob item) => item.name).join('\n  ')}"
-            'Dependency loop:\n'
-            "  ${visited.map((DependentJob item) => item.name).join('\n  ')}");
+        throw ProcessRunnerException('Illegal dependency loop detected:\n'
+            '  ${<DependentJob>[
+          ...visited,
+          job
+        ].map((DependentJob item) => item.name).join('\n  ')}');
       }
     }
   }

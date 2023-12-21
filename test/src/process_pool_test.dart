@@ -5,7 +5,6 @@
 import 'dart:io';
 
 import 'package:process_runner/process_runner.dart';
-import 'package:test/expect.dart';
 import 'package:test/test.dart';
 
 import 'fake_process_manager.dart';
@@ -26,7 +25,8 @@ void main() {
   });
 
   test('startWorkers works', () async {
-    final Map<FakeInvocationRecord, List<ProcessResult>> calls = <FakeInvocationRecord, List<ProcessResult>>{
+    final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+        <FakeInvocationRecord, List<ProcessResult>>{
       FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
         ProcessResult(0, 0, 'output1', ''),
       ],
@@ -39,7 +39,8 @@ void main() {
     fakeProcessManager.verifyCalls(calls.keys);
   });
   test('runToCompletion works', () async {
-    final Map<FakeInvocationRecord, List<ProcessResult>> calls = <FakeInvocationRecord, List<ProcessResult>>{
+    final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+        <FakeInvocationRecord, List<ProcessResult>>{
       FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
         ProcessResult(0, 0, 'output1', ''),
       ],
@@ -52,7 +53,8 @@ void main() {
     fakeProcessManager.verifyCalls(calls.keys);
   });
   test('failed tests report results', () async {
-    final Map<FakeInvocationRecord, List<ProcessResult>> calls = <FakeInvocationRecord, List<ProcessResult>>{
+    final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+        <FakeInvocationRecord, List<ProcessResult>>{
       FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
         ProcessResult(0, -1, 'output1', 'stderr1'),
       ],
@@ -68,7 +70,8 @@ void main() {
     expect(completed.first.result.output, equals('output1stderr1'));
   });
   test('failed tests throw when failOk is false', () async {
-    final Map<FakeInvocationRecord, List<ProcessResult>> calls = <FakeInvocationRecord, List<ProcessResult>>{
+    final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+        <FakeInvocationRecord, List<ProcessResult>>{
       FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
         ProcessResult(0, -1, 'output1', 'stderr1'),
       ],
@@ -85,7 +88,8 @@ void main() {
     fakeProcessManager = FakeProcessManager((String value) {}, commandsThrow: true);
     processRunner = ProcessRunner(processManager: fakeProcessManager);
     processPool = ProcessPool(processRunner: processRunner, printReport: null);
-    final Map<FakeInvocationRecord, List<ProcessResult>> calls = <FakeInvocationRecord, List<ProcessResult>>{
+    final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+        <FakeInvocationRecord, List<ProcessResult>>{
       FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath): <ProcessResult>[
         ProcessResult(0, -1, 'output1', 'stderr1'),
       ],
@@ -103,7 +107,8 @@ void main() {
     fakeProcessManager = FakeProcessManager((String value) {});
     processRunner = ProcessRunner(processManager: fakeProcessManager);
     processPool = ProcessPool(processRunner: processRunner, printReport: null);
-    final Map<FakeInvocationRecord, List<ProcessResult>> calls = <FakeInvocationRecord, List<ProcessResult>>{
+    final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+        <FakeInvocationRecord, List<ProcessResult>>{
       FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'], testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputA1', 'stderrA1'),
       ],
@@ -176,7 +181,8 @@ void main() {
     fakeProcessManager = FakeProcessManager((String value) {});
     processRunner = ProcessRunner(processManager: fakeProcessManager);
     processPool = ProcessPool(processRunner: processRunner, printReport: null);
-    final Map<FakeInvocationRecord, List<ProcessResult>> calls = <FakeInvocationRecord, List<ProcessResult>>{
+    final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+        <FakeInvocationRecord, List<ProcessResult>>{
       FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'], testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputA1', 'stderrA1'),
       ],
@@ -234,16 +240,7 @@ void main() {
       unorderedEquals(<String>['job B1', 'job A1', 'job A2', 'job A3']),
     );
   });
-test("Jobs can't depend on themselves", () async {
-    fakeProcessManager = FakeProcessManager((String value) {});
-    processRunner = ProcessRunner(processManager: fakeProcessManager);
-    processPool = ProcessPool(processRunner: processRunner, printReport: null);
-    final Map<FakeInvocationRecord, List<ProcessResult>> calls = <FakeInvocationRecord, List<ProcessResult>>{
-      FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'], testPath): <ProcessResult>[
-        ProcessResult(0, 0, 'outputA1', 'stderrA1'),
-      ],
-    };
-    fakeProcessManager.fakeResults = calls;
+  test("Jobs can't depend on themselves", () async {
     final WorkerJob job = WorkerJob(<String>['commandA1', 'arg1', 'arg2'], name: 'job A1');
 
     ProcessRunnerException? exception;
@@ -254,5 +251,64 @@ test("Jobs can't depend on themselves", () async {
     }
     expect(exception, isNotNull);
     expect(exception!.message, equals('A job cannot depend on itself'));
+  });
+  test("Jobs can't depend on each other directly", () async {
+    final WorkerJob jobA = WorkerJob(<String>['commandA1', 'arg1', 'arg2'], name: 'job A1');
+    final WorkerJob jobB = WorkerJob(<String>['commandB1', 'arg1', 'arg2'], name: 'job B1');
+
+    ProcessRunnerException? exception;
+    try {
+      jobA.addDependency(jobB);
+      jobB.addDependency(jobA);
+    } on ProcessRunnerException catch (e) {
+      exception = e;
+    }
+    expect(exception, isNotNull);
+    expect(
+      exception!.message,
+      equals('job B1 is already a dependency of job A1, no cycle allowed'),
+    );
+  });
+  test("Jobs can't depend on each other indirectly", () async {
+    fakeProcessManager = FakeProcessManager((String value) {});
+    processRunner = ProcessRunner(processManager: fakeProcessManager);
+    processPool = ProcessPool(processRunner: processRunner, printReport: null);
+    final Map<FakeInvocationRecord, List<ProcessResult>> calls =
+        <FakeInvocationRecord, List<ProcessResult>>{
+      FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'], testPath): <ProcessResult>[
+        ProcessResult(0, 0, 'outputA1', 'stderrA1'),
+      ],
+      FakeInvocationRecord(<String>['commandB1', 'arg1', 'arg2'], testPath): <ProcessResult>[
+        ProcessResult(0, 0, 'outputB1', 'stderrB1'),
+      ],
+      FakeInvocationRecord(<String>['commandC1', 'arg1', 'arg2'], testPath): <ProcessResult>[
+        ProcessResult(0, 0, 'outputC1', 'stderrC1'),
+      ],
+    };
+    fakeProcessManager.fakeResults = calls;
+    final WorkerJob jobA = WorkerJob(<String>['commandA1', 'arg1', 'arg2'], name: 'job A1');
+    final WorkerJob jobB = WorkerJob(<String>['commandB1', 'arg1', 'arg2'], name: 'job B1');
+    final WorkerJob jobC = WorkerJob(<String>['commandC1', 'arg1', 'arg2'], name: 'job C1');
+
+    ProcessRunnerException? exception;
+    try {
+      jobA.addDependency(jobB);
+      jobB.addDependency(jobC);
+      jobC.addDependency(jobA);
+      await processPool.runToCompletion(<DependentJob>[jobA, jobB, jobC]);
+    } on ProcessRunnerException catch (e) {
+      exception = e;
+    }
+    expect(exception, isNotNull, reason: 'Should have thrown an exception');
+    expect(
+      exception!.message,
+      equals(
+        'Illegal dependency loop detected:\n'
+        '  job A1\n'
+        '  job B1\n'
+        '  job C1\n'
+        '  job A1',
+      ),
+    );
   });
 }
