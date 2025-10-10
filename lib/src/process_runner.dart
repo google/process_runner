@@ -5,11 +5,21 @@
 import 'dart:async' show Completer;
 import 'dart:convert' show Encoding;
 import 'dart:io'
-    show Process, ProcessStartMode, ProcessException, Directory, stderr, stdout, SystemEncoding
-    hide Platform;
+    show
+        Directory,
+        Process,
+        ProcessException,
+        ProcessStartMode,
+        SystemEncoding,
+        stderr,
+        stdout;
 
-import 'package:platform/platform.dart' show Platform, LocalPlatform;
-import 'package:process/process.dart' show ProcessManager, LocalProcessManager;
+import 'package:platform/platform.dart' show LocalPlatform, Platform;
+import 'package:process/process.dart' show LocalProcessManager, ProcessManager;
+
+import '../process_runner.dart' show ProcessPool;
+
+import 'process_pool.dart' show ProcessPool;
 
 const Platform defaultPlatform = LocalPlatform();
 
@@ -25,9 +35,9 @@ class ProcessRunnerException implements Exception {
 
   @override
   String toString() {
-    String output = runtimeType.toString();
+    var output = runtimeType.toString();
     output += ': $message';
-    final String stderr = result?.stderr ?? '';
+    final stderr = result?.stderr ?? '';
     if (stderr.isNotEmpty) {
       output += ':\n$stderr';
     }
@@ -73,8 +83,8 @@ class ProcessRunnerResult {
   /// Information appears in the order supplied by the process.
   final List<int> outputRaw;
 
-  /// The optional encoder to use in [stdout], [stderr], and [output] accessors to decode
-  /// the raw data.
+  /// The optional encoder to use in [stdout], [stderr], and [output] accessors
+  /// to decode the raw data.
   ///
   /// Defaults to using [SystemEncoding].
   final Encoding decoder;
@@ -115,11 +125,15 @@ class ProcessRunnerResult {
 
   String? _output;
 
-  /// A constant to use if there is no result data available, but the process failed.
-  static final ProcessRunnerResult failed = ProcessRunnerResult(-1, <int>[], <int>[], <int>[]);
+  /// A constant to use if there is no result data available, but the process
+  /// failed.
+  static final ProcessRunnerResult failed =
+      ProcessRunnerResult(-1, <int>[], <int>[], <int>[]);
 
-  /// A constant to use if there is no result data available, but the process succeeded.
-  static final ProcessRunnerResult emptySuccess = ProcessRunnerResult(0, <int>[], <int>[], <int>[]);
+  /// A constant to use if there is no result data available, but the process
+  /// succeeded.
+  static final ProcessRunnerResult emptySuccess =
+      ProcessRunnerResult(0, <int>[], <int>[], <int>[]);
 }
 
 /// A helper class for classes that want to run a process, optionally have the
@@ -134,7 +148,8 @@ class ProcessRunner {
     this.printOutputDefault = false,
     this.decoder = const SystemEncoding(),
   })  : defaultWorkingDirectory = defaultWorkingDirectory ?? Directory.current,
-        environment = environment ?? Map<String, String>.from(defaultPlatform.environment);
+        environment = environment ??
+            Map<String, String>.from(defaultPlatform.environment);
 
   /// Set the [processManager] in order to allow injecting a test instance to
   /// perform testing.
@@ -202,14 +217,15 @@ class ProcessRunner {
     workingDirectory ??= defaultWorkingDirectory;
     printOutput ??= printOutputDefault;
     if (printOutput) {
-      stderr.write('Running "${commandLine.join(' ')}" in ${workingDirectory.path}.\n');
+      stderr.write(
+          'Running "${commandLine.join(' ')}" in ${workingDirectory.path}.\n');
     }
-    final List<int> stdoutOutput = <int>[];
-    final List<int> stderrOutput = <int>[];
-    final List<int> combinedOutput = <int>[];
-    final Completer<void> stdoutComplete = Completer<void>();
-    final Completer<void> stderrComplete = Completer<void>();
-    final Completer<void> stdinComplete = Completer<void>();
+    final stdoutOutput = <int>[];
+    final stderrOutput = <int>[];
+    final combinedOutput = <int>[];
+    final stdoutComplete = Completer<void>();
+    final stderrComplete = Completer<void>();
+    final stdinComplete = Completer<void>();
 
     late Process process;
     Future<int> allComplete() async {
@@ -219,7 +235,9 @@ class ProcessRunner {
       }
       await stderrComplete.future;
       await stdoutComplete.future;
-      return startMode == ProcessStartMode.normal ? process.exitCode : Future<int>.value(0);
+      return startMode == ProcessStartMode.normal
+          ? process.exitCode
+          : Future<int>.value(0);
     }
 
     try {
@@ -230,7 +248,8 @@ class ProcessRunner {
         runInShell: runInShell,
         mode: startMode,
       );
-      if (startMode == ProcessStartMode.normal || startMode == ProcessStartMode.detachedWithStdio) {
+      if (startMode == ProcessStartMode.normal ||
+          startMode == ProcessStartMode.detachedWithStdio) {
         if (stdin != null) {
           stdin.listen((List<int> data) {
             process.stdin.add(data);
@@ -263,19 +282,23 @@ class ProcessRunner {
         stderrComplete.complete();
       }
     } on ProcessException catch (e) {
-      final String message = 'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
+      final message =
+          'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
           'failed with:\n$e';
       throw ProcessRunnerException(message);
+      // ignore: avoid_catching_errors
     } on ArgumentError catch (e) {
-      final String message = 'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
+      final message =
+          'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
           'failed with:\n$e';
       throw ProcessRunnerException(message);
     }
 
-    final int exitCode = await allComplete();
+    final exitCode = await allComplete();
     if (exitCode != 0 && !failOk) {
-      final String message =
-          'Running "${commandLine.join(' ')}" in ${workingDirectory.path} exited with code $exitCode\n${decoder.decode(combinedOutput)}';
+      final message =
+          'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
+          'exited with code $exitCode\n${decoder.decode(combinedOutput)}';
       throw ProcessRunnerException(
         message,
         result: ProcessRunnerResult(

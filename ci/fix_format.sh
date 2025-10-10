@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
 function format() {
-  (cd "$REPO_DIR" && dart format --set-exit-if-changed --line-length=100 "$@" lib test ci example)
+  (cd "$REPO_DIR" && dart format --set-exit-if-changed "$@" lib test ci example)
 }
 
 # Make sure dartfmt is run on everything

@@ -18,11 +18,8 @@ class FakeInvocationRecord {
   final String? workingDirectory;
 }
 
-/// A mock that can be used to fake a process manager that runs commands
-/// and returns results.
-///
-/// Call [setResults] to provide a list of results that will return from
-/// each command line (with arguments).
+/// A mock that can be used to fake a process manager that runs commands and
+/// returns results.
 ///
 /// Call [verifyCalls] to verify that each desired call occurred.
 class FakeProcessManager implements ProcessManager {
@@ -41,11 +38,13 @@ class FakeProcessManager implements ProcessManager {
   /// output that will be returned on each successive call.
   Map<FakeInvocationRecord, List<ProcessResult>> _fakeResults =
       <FakeInvocationRecord, List<ProcessResult>>{};
-  Map<FakeInvocationRecord, List<ProcessResult>> get fakeResults => _fakeResults;
+  Map<FakeInvocationRecord, List<ProcessResult>> get fakeResults =>
+      _fakeResults;
   set fakeResults(Map<FakeInvocationRecord, List<ProcessResult>> value) {
     _fakeResults = <FakeInvocationRecord, List<ProcessResult>>{};
-    for (final FakeInvocationRecord key in value.keys) {
-      _fakeResults[key] = (value[key] ?? <ProcessResult>[ProcessResult(0, 0, '', '')]).toList();
+    for (final key in value.keys) {
+      _fakeResults[key] =
+          (value[key] ?? <ProcessResult>[ProcessResult(0, 0, '', '')]).toList();
     }
   }
 
@@ -55,11 +54,12 @@ class FakeProcessManager implements ProcessManager {
   /// Verify that the given command lines were called, in the given order, and
   /// that the parameters were in the same order.
   void verifyCalls(Iterable<FakeInvocationRecord> calls) {
-    int index = 0;
+    var index = 0;
     expect(invocations.length, equals(calls.length));
-    for (final FakeInvocationRecord call in calls) {
+    for (final call in calls) {
       expect(call.invocation, orderedEquals(invocations[index].invocation));
-      expect(call.workingDirectory, equals(invocations[index].workingDirectory));
+      expect(
+          call.workingDirectory, equals(invocations[index].workingDirectory));
       index++;
     }
   }
@@ -68,12 +68,12 @@ class FakeProcessManager implements ProcessManager {
     expect(fakeResults, isNotEmpty);
     late List<ProcessResult> foundResult;
     late FakeInvocationRecord foundCommand;
-    for (final FakeInvocationRecord fakeCommand in fakeResults.keys) {
+    for (final fakeCommand in fakeResults.keys) {
       if (fakeCommand.invocation.length != command.invocation.length) {
         continue;
       }
-      bool listsIdentical = true;
-      for (int i = 0; i < fakeCommand.invocation.length; ++i) {
+      var listsIdentical = true;
+      for (var i = 0; i < fakeCommand.invocation.length; ++i) {
         if (fakeCommand.invocation[i] != command.invocation[i]) {
           listsIdentical = false;
           break;
@@ -85,28 +85,33 @@ class FakeProcessManager implements ProcessManager {
         break;
       }
     }
-    expect(foundResult, isNotNull, reason: '$command not found in expected results.');
+    expect(foundResult, isNotNull,
+        reason: '$command not found in expected results.');
     expect(foundResult, isNotEmpty);
-    return fakeResults[foundCommand]?.removeAt(0) ?? ProcessResult(0, 0, '', '');
+    return fakeResults[foundCommand]?.removeAt(0) ??
+        ProcessResult(0, 0, '', '');
   }
 
   FakeProcess _popProcess(FakeInvocationRecord command) =>
       FakeProcess(_popResult(command), stdinResults);
 
-  Future<Process> _nextProcess(List<String> invocation, String? workingDirectory) async {
-    final FakeInvocationRecord record = FakeInvocationRecord(invocation, workingDirectory);
+  Future<Process> _nextProcess(
+      List<String> invocation, String? workingDirectory) async {
+    final record = FakeInvocationRecord(invocation, workingDirectory);
     invocations.add(record);
     return Future<Process>.value(_popProcess(record));
   }
 
-  ProcessResult _nextResultSync(List<String> invocation, String? workingDirectory) {
-    final FakeInvocationRecord record = FakeInvocationRecord(invocation, workingDirectory);
+  ProcessResult _nextResultSync(
+      List<String> invocation, String? workingDirectory) {
+    final record = FakeInvocationRecord(invocation, workingDirectory);
     invocations.add(record);
     return _popResult(record);
   }
 
-  Future<ProcessResult> _nextResult(List<String> invocation, String? workingDirectory) async {
-    final FakeInvocationRecord record = FakeInvocationRecord(invocation, workingDirectory);
+  Future<ProcessResult> _nextResult(
+      List<String> invocation, String? workingDirectory) async {
+    final record = FakeInvocationRecord(invocation, workingDirectory);
     invocations.add(record);
     return Future<ProcessResult>.value(_popResult(record));
   }
@@ -175,8 +180,10 @@ typedef StdinResults = void Function(String input);
 /// FakeProcessManager.
 class FakeProcess implements Process {
   FakeProcess(ProcessResult result, StdinResults stdinResults)
-      : stdoutStream = Stream<List<int>>.value((result.stdout as String).codeUnits),
-        stderrStream = Stream<List<int>>.value((result.stderr as String).codeUnits),
+      : stdoutStream =
+            Stream<List<int>>.value((result.stdout as String).codeUnits),
+        stderrStream =
+            Stream<List<int>>.value((result.stderr as String).codeUnits),
         desiredExitCode = result.exitCode,
         stdinSink = IOSink(StringStreamConsumer(stdinResults));
 
@@ -214,7 +221,8 @@ class StringStreamConsumer implements StreamConsumer<List<int>> {
   StringStreamConsumer(this.sendString);
 
   List<Stream<List<int>>> streams = <Stream<List<int>>>[];
-  List<StreamSubscription<List<int>>> subscriptions = <StreamSubscription<List<int>>>[];
+  List<StreamSubscription<List<int>>> subscriptions =
+      <StreamSubscription<List<int>>>[];
   List<Completer<dynamic>> completers = <Completer<dynamic>>[];
 
   /// The callback called when this consumer receives input.
@@ -235,7 +243,7 @@ class StringStreamConsumer implements StreamConsumer<List<int>> {
 
   @override
   Future<dynamic> close() async {
-    for (final Completer<dynamic> completer in completers) {
+    for (final completer in completers) {
       await completer.future;
     }
     completers.clear();
