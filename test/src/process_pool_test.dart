@@ -4,11 +4,14 @@
 
 import 'dart:io';
 
+import 'package:file/file.dart';
+import 'package:file/memory.dart';
 import 'package:process_runner/process_runner.dart';
 import 'package:process_runner/test/fake_process_manager.dart';
 import 'package:test/test.dart';
 
 void main() {
+  late FileSystem fs;
   late FakeProcessManager fakeProcessManager;
   late ProcessRunner processRunner;
   late ProcessPool processPool;
@@ -16,17 +19,21 @@ void main() {
 
   setUp(() {
     fakeProcessManager = FakeProcessManager((String value) {});
+    fs = MemoryFileSystem(
+        style: Platform.isWindows
+            ? FileSystemStyle.windows
+            : FileSystemStyle.posix);
     processRunner = ProcessRunner(
       processManager: fakeProcessManager,
-      defaultWorkingDirectory: Directory(testPath),
+      defaultWorkingDirectory: fs.directory(testPath),
     );
     processPool = ProcessPool(processRunner: processRunner, printReport: null);
   });
 
   test('startWorkers works', () async {
     final calls = <FakeInvocationRecord, List<ProcessResult>>{
-      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'output1', ''),
       ],
     };
@@ -39,8 +46,8 @@ void main() {
   });
   test('runToCompletion works', () async {
     final calls = <FakeInvocationRecord, List<ProcessResult>>{
-      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'output1', ''),
       ],
     };
@@ -53,8 +60,8 @@ void main() {
   });
   test('failed tests report results', () async {
     final calls = <FakeInvocationRecord, List<ProcessResult>>{
-      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, -1, 'output1', 'stderr1'),
       ],
     };
@@ -70,8 +77,8 @@ void main() {
   });
   test('failed tests throw when failOk is false', () async {
     final calls = <FakeInvocationRecord, List<ProcessResult>>{
-      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, -1, 'output1', 'stderr1'),
       ],
     };
@@ -90,8 +97,8 @@ void main() {
     processRunner = ProcessRunner(processManager: fakeProcessManager);
     processPool = ProcessPool(processRunner: processRunner, printReport: null);
     final calls = <FakeInvocationRecord, List<ProcessResult>>{
-      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, -1, 'output1', 'stderr1'),
       ],
     };
@@ -106,32 +113,29 @@ void main() {
 
   test('Commands in task groups run in order, but parallel with other groups',
       () async {
-    fakeProcessManager = FakeProcessManager((String value) {});
-    processRunner = ProcessRunner(processManager: fakeProcessManager);
-    processPool = ProcessPool(processRunner: processRunner, printReport: null);
     final calls = <FakeInvocationRecord, List<ProcessResult>>{
-      FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputA1', 'stderrA1'),
       ],
-      FakeInvocationRecord(<String>['commandB1', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandB1', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputB1', 'stderrB1'),
       ],
-      FakeInvocationRecord(<String>['commandA2', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandA2', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputA2', 'stderrA2'),
       ],
-      FakeInvocationRecord(<String>['commandB2', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandB2', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, -1, 'outputB2', 'stderrB2'),
       ],
-      FakeInvocationRecord(<String>['commandA3', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandA3', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputA3', 'stderrA3'),
       ],
-      FakeInvocationRecord(<String>['commandB3', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandB3', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputB3', 'stderrB3'),
       ],
     };
@@ -191,32 +195,29 @@ void main() {
     );
   });
   test('Commands in task groups can depend on other groups', () async {
-    fakeProcessManager = FakeProcessManager((String value) {});
-    processRunner = ProcessRunner(processManager: fakeProcessManager);
-    processPool = ProcessPool(processRunner: processRunner, printReport: null);
     final calls = <FakeInvocationRecord, List<ProcessResult>>{
-      FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputA1', 'stderrA1'),
       ],
-      FakeInvocationRecord(<String>['commandB1', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandB1', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputB1', 'stderrB1'),
       ],
-      FakeInvocationRecord(<String>['commandA2', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandA2', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputA2', 'stderrA2'),
       ],
-      FakeInvocationRecord(<String>['commandB2', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandB2', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, -1, 'outputB2', 'stderrB2'),
       ],
-      FakeInvocationRecord(<String>['commandA3', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandA3', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputA3', 'stderrA3'),
       ],
-      FakeInvocationRecord(<String>['commandB3', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandB3', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputB3', 'stderrB3'),
       ],
     };
@@ -309,16 +310,16 @@ void main() {
     processRunner = ProcessRunner(processManager: fakeProcessManager);
     processPool = ProcessPool(processRunner: processRunner, printReport: null);
     final calls = <FakeInvocationRecord, List<ProcessResult>>{
-      FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandA1', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputA1', 'stderrA1'),
       ],
-      FakeInvocationRecord(<String>['commandB1', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandB1', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputB1', 'stderrB1'),
       ],
-      FakeInvocationRecord(<String>['commandC1', 'arg1', 'arg2'], testPath):
-          <ProcessResult>[
+      FakeInvocationRecord(<String>['commandC1', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
         ProcessResult(0, 0, 'outputC1', 'stderrC1'),
       ],
     };
@@ -349,6 +350,60 @@ void main() {
         '  job C1\n'
         '  job A1',
       ),
+    );
+  });
+
+  test('throws when a job depends on a job not in the pool', () async {
+    final jobA = WorkerJob(<String>['commandA'], name: 'job A');
+    final jobB = WorkerJob(<String>['commandB'], name: 'job B');
+    jobA.addDependency(jobB);
+    final jobs = <DependentJob>[jobA];
+    expect(
+      () => processPool.runToCompletion(jobs),
+      throwsA(isA<ProcessRunnerException>().having(
+        (e) => e.message,
+        'message',
+        contains("job A has dependent jobs that aren't scheduled to be run"),
+      )),
+    );
+  });
+
+  test('WorkerJob with stdin works', () async {
+    final stdinCaptured = <String>[];
+    fakeProcessManager = FakeProcessManager(stdinCaptured.add);
+    processRunner = ProcessRunner(
+      processManager: fakeProcessManager,
+      defaultWorkingDirectory: fs.directory(testPath),
+    );
+    processPool = ProcessPool(processRunner: processRunner, printReport: null);
+
+    final calls = <FakeInvocationRecord, List<ProcessResult>>{
+      FakeInvocationRecord(<String>['command', 'arg1', 'arg2'],
+          workingDirectory: testPath): <ProcessResult>[
+        ProcessResult(0, 0, 'output1', ''),
+      ],
+    };
+    fakeProcessManager.fakeResults = calls;
+    final jobs = <WorkerJob>[
+      WorkerJob(
+        <String>['command', 'arg1', 'arg2'],
+        name: 'job 1',
+        stdin: Stream<String>.fromIterable(<String>['input']),
+      ),
+    ];
+    await processPool.runToCompletion(jobs);
+    fakeProcessManager.verifyCalls(calls.keys);
+    expect(stdinCaptured, equals(<String>['input']));
+  });
+
+  test('defaultReportToString formats correctly', () {
+    expect(
+      ProcessPool.defaultReportToString(100, 20, 10, 60, 10),
+      'Jobs:  30% done,  20/100 completed, 10 in progress,  60 pending,  10 failed.    \r',
+    );
+    expect(
+      ProcessPool.defaultReportToString(0, 0, 0, 0, 0),
+      'Jobs: 100% done,   0/0   completed,  0 in progress,   0 pending,   0 failed.    \r',
     );
   });
 }

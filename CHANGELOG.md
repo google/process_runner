@@ -1,5 +1,18 @@
 # Change Log for `process_runner`
 
+## 4.2.2
+
+- Refactoring the main `run` method in `ProcessRunner` into smaller, more
+  manageable private methods.
+- Enhancing `FakeProcessManager` to differentiate commands based on their
+  working directory and the `runInShell` parameter, and adding more
+  comprehensive tests for it.
+- Making the addition of dependencies in `ProcessPool` idempotent (do nothing if
+  the dependency already exists).
+- Updating the CI to track the main branch.
+- Adding a number of new tests to cover `stdin` handling, `runInShell` behavior,
+  and exception scenarios.
+
 ## 4.2.1
 
 - Updates analysis_options.yaml to modern lints, and updates formatting.
