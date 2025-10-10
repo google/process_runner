@@ -17,10 +17,12 @@ class FakeInvocationRecord {
     this.invocation, {
     this.workingDirectory,
     this.runInShell = false,
+    this.includeParentEnvironment = true,
   });
   final List<String> invocation;
   final String? workingDirectory;
   final bool runInShell;
+  final bool includeParentEnvironment;
 
   @override
   bool operator ==(Object other) {
@@ -39,6 +41,9 @@ class FakeInvocationRecord {
     if (other.runInShell != runInShell) {
       return false;
     }
+    if (other.includeParentEnvironment != includeParentEnvironment) {
+      return false;
+    }
     if (other.invocation.length != invocation.length) {
       return false;
     }
@@ -51,13 +56,14 @@ class FakeInvocationRecord {
   }
 
   @override
-  int get hashCode =>
-      Object.hashAll([workingDirectory, runInShell, ...invocation]);
+  int get hashCode => Object.hashAll(
+      [workingDirectory, runInShell, includeParentEnvironment, ...invocation]);
 
   @override
   String toString() {
     return 'FakeInvocationRecord(invocation: $invocation, '
-        'workingDirectory: $workingDirectory, runInShell: $runInShell)';
+        'workingDirectory: $workingDirectory, runInShell: $runInShell, '
+        'includeParentEnvironment: $includeParentEnvironment)';
   }
 }
 
@@ -123,11 +129,13 @@ class FakeProcessManager implements ProcessManager {
     List<String> invocation, {
     String? workingDirectory,
     bool runInShell = false,
+    bool includeParentEnvironment = true,
   }) async {
     final record = FakeInvocationRecord(
       invocation,
       workingDirectory: workingDirectory,
       runInShell: runInShell,
+      includeParentEnvironment: includeParentEnvironment,
     );
     invocations.add(record);
     return Future<Process>.value(_popProcess(record));
@@ -137,11 +145,13 @@ class FakeProcessManager implements ProcessManager {
     List<String> invocation, {
     String? workingDirectory,
     bool runInShell = false,
+    bool includeParentEnvironment = true,
   }) {
     final record = FakeInvocationRecord(
       invocation,
       workingDirectory: workingDirectory,
       runInShell: runInShell,
+      includeParentEnvironment: includeParentEnvironment,
     );
     invocations.add(record);
     return _popResult(record);
@@ -151,11 +161,13 @@ class FakeProcessManager implements ProcessManager {
     List<String> invocation, {
     String? workingDirectory,
     bool runInShell = false,
+    bool includeParentEnvironment = true,
   }) async {
     final record = FakeInvocationRecord(
       invocation,
       workingDirectory: workingDirectory,
       runInShell: runInShell,
+      includeParentEnvironment: includeParentEnvironment,
     );
     invocations.add(record);
     return Future<ProcessResult>.value(_popResult(record));
@@ -188,6 +200,7 @@ class FakeProcessManager implements ProcessManager {
       command as List<String>,
       workingDirectory: workingDirectory,
       runInShell: runInShell,
+      includeParentEnvironment: includeParentEnvironment,
     );
   }
 
@@ -208,6 +221,7 @@ class FakeProcessManager implements ProcessManager {
       command as List<String>,
       workingDirectory: workingDirectory,
       runInShell: runInShell,
+      includeParentEnvironment: includeParentEnvironment,
     );
   }
 
@@ -227,6 +241,7 @@ class FakeProcessManager implements ProcessManager {
       command as List<String>,
       workingDirectory: workingDirectory,
       runInShell: runInShell,
+      includeParentEnvironment: includeParentEnvironment,
     );
   }
 }

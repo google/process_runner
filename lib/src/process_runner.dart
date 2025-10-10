@@ -277,6 +277,7 @@ class ProcessRunner {
         commandLine,
         workingDirectory: workingDirectory.absolute.path,
         environment: environment,
+        includeParentEnvironment: includeParentEnvironment,
         runInShell: runInShell,
         mode: startMode,
       );
