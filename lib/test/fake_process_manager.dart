@@ -13,9 +13,52 @@ import 'package:test/test.dart' hide TypeMatcher, isInstanceOf;
 test_package.TypeMatcher<T> isInstanceOf<T>() => isA<T>();
 
 class FakeInvocationRecord {
-  FakeInvocationRecord(this.invocation, [this.workingDirectory]);
+  FakeInvocationRecord(
+    this.invocation, {
+    this.workingDirectory,
+    this.runInShell = false,
+  });
   final List<String> invocation;
   final String? workingDirectory;
+  final bool runInShell;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (other is! FakeInvocationRecord) {
+      return false;
+    }
+    if (other.workingDirectory != workingDirectory) {
+      return false;
+    }
+    if (other.runInShell != runInShell) {
+      return false;
+    }
+    if (other.invocation.length != invocation.length) {
+      return false;
+    }
+    for (var i = 0; i < invocation.length; ++i) {
+      if (other.invocation[i] != invocation[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hashAll([workingDirectory, runInShell, ...invocation]);
+
+  @override
+  String toString() {
+    return 'FakeInvocationRecord(invocation: $invocation, '
+        'workingDirectory: $workingDirectory, runInShell: $runInShell)';
+  }
 }
 
 /// A mock that can be used to fake a process manager that runs commands and
@@ -31,7 +74,7 @@ class FakeProcessManager implements ProcessManager {
 
   /// Set to true if all commands run with this process manager should throw an
   /// exception.
-  final bool commandsThrow;
+  bool commandsThrow;
 
   /// The list of results that will be sent back, organized by the command line
   /// that will produce them. Each command line has a list of returned stdout
@@ -66,52 +109,54 @@ class FakeProcessManager implements ProcessManager {
 
   ProcessResult _popResult(FakeInvocationRecord command) {
     expect(fakeResults, isNotEmpty);
-    late List<ProcessResult> foundResult;
-    late FakeInvocationRecord foundCommand;
-    for (final fakeCommand in fakeResults.keys) {
-      if (fakeCommand.invocation.length != command.invocation.length) {
-        continue;
-      }
-      var listsIdentical = true;
-      for (var i = 0; i < fakeCommand.invocation.length; ++i) {
-        if (fakeCommand.invocation[i] != command.invocation[i]) {
-          listsIdentical = false;
-          break;
-        }
-      }
-      if (listsIdentical) {
-        foundResult = fakeResults[fakeCommand]!;
-        foundCommand = fakeCommand;
-        break;
-      }
-    }
+    final foundResult = fakeResults[command];
     expect(foundResult, isNotNull,
         reason: '$command not found in expected results.');
     expect(foundResult, isNotEmpty);
-    return fakeResults[foundCommand]?.removeAt(0) ??
-        ProcessResult(0, 0, '', '');
+    return fakeResults[command]!.removeAt(0);
   }
 
   FakeProcess _popProcess(FakeInvocationRecord command) =>
       FakeProcess(_popResult(command), stdinResults);
 
   Future<Process> _nextProcess(
-      List<String> invocation, String? workingDirectory) async {
-    final record = FakeInvocationRecord(invocation, workingDirectory);
+    List<String> invocation, {
+    String? workingDirectory,
+    bool runInShell = false,
+  }) async {
+    final record = FakeInvocationRecord(
+      invocation,
+      workingDirectory: workingDirectory,
+      runInShell: runInShell,
+    );
     invocations.add(record);
     return Future<Process>.value(_popProcess(record));
   }
 
   ProcessResult _nextResultSync(
-      List<String> invocation, String? workingDirectory) {
-    final record = FakeInvocationRecord(invocation, workingDirectory);
+    List<String> invocation, {
+    String? workingDirectory,
+    bool runInShell = false,
+  }) {
+    final record = FakeInvocationRecord(
+      invocation,
+      workingDirectory: workingDirectory,
+      runInShell: runInShell,
+    );
     invocations.add(record);
     return _popResult(record);
   }
 
   Future<ProcessResult> _nextResult(
-      List<String> invocation, String? workingDirectory) async {
-    final record = FakeInvocationRecord(invocation, workingDirectory);
+    List<String> invocation, {
+    String? workingDirectory,
+    bool runInShell = false,
+  }) async {
+    final record = FakeInvocationRecord(
+      invocation,
+      workingDirectory: workingDirectory,
+      runInShell: runInShell,
+    );
     invocations.add(record);
     return Future<ProcessResult>.value(_popResult(record));
   }
@@ -139,7 +184,11 @@ class FakeProcessManager implements ProcessManager {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }
-    return _nextResult(command as List<String>, workingDirectory);
+    return _nextResult(
+      command as List<String>,
+      workingDirectory: workingDirectory,
+      runInShell: runInShell,
+    );
   }
 
   @override
@@ -155,7 +204,11 @@ class FakeProcessManager implements ProcessManager {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }
-    return _nextResultSync(command as List<String>, workingDirectory);
+    return _nextResultSync(
+      command as List<String>,
+      workingDirectory: workingDirectory,
+      runInShell: runInShell,
+    );
   }
 
   @override
@@ -170,7 +223,11 @@ class FakeProcessManager implements ProcessManager {
     if (commandsThrow) {
       throw const ProcessException('failed_executable', <String>[]);
     }
-    return _nextProcess(command as List<String>, workingDirectory);
+    return _nextProcess(
+      command as List<String>,
+      workingDirectory: workingDirectory,
+      runInShell: runInShell,
+    );
   }
 }
 

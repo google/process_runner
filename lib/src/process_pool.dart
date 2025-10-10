@@ -59,7 +59,7 @@ abstract class DependentJob {
       throw ProcessRunnerException('A job cannot depend on itself');
     }
     if (_dependsOn.contains(job)) {
-      throw ProcessRunnerException('$job is already a dependency of $this');
+      return;
     }
     if (job._dependsOn.contains(this)) {
       throw ProcessRunnerException(
@@ -225,13 +225,16 @@ class WorkerJobGroup extends DependentJob {
   WorkerJobGroup(Iterable<DependentJob> jobs,
       {Iterable<DependentJob>? dependsOn, this.name = 'Group'})
       : assert(jobs.isNotEmpty),
-        jobs = <DependentJob>[...jobs],
+        jobs = jobs.toList(),
         super(dependsOn: <DependentJob>{
           ...jobs.toSet(),
           if (dependsOn != null) ...dependsOn
         }) {
     // Make sure they run in series, and they depend on anything that the group
     // depends on.
+    if (dependsOn != null) {
+      this.jobs.first.addDependencies(dependsOn);
+    }
     for (var i = 1; i < this.jobs.length; i++) {
       this.jobs[i].addDependency(this.jobs[i - 1]);
     }

@@ -220,81 +220,26 @@ class ProcessRunner {
       stderr.write(
           'Running "${commandLine.join(' ')}" in ${workingDirectory.path}.\n');
     }
+
+    final process = await _startProcess(
+        commandLine, workingDirectory, runInShell, startMode);
+
     final stdoutOutput = <int>[];
     final stderrOutput = <int>[];
     final combinedOutput = <int>[];
-    final stdoutComplete = Completer<void>();
-    final stderrComplete = Completer<void>();
-    final stdinComplete = Completer<void>();
+    final completers = _streamProcessOutput(
+      process,
+      stdin,
+      stdoutOutput,
+      stderrOutput,
+      combinedOutput,
+      printOutput,
+      startMode,
+    );
 
-    late Process process;
-    Future<int> allComplete() async {
-      if (stdin != null) {
-        await stdinComplete.future;
-        await process.stdin.close();
-      }
-      await stderrComplete.future;
-      await stdoutComplete.future;
-      return startMode == ProcessStartMode.normal
-          ? process.exitCode
-          : Future<int>.value(0);
-    }
+    final exitCode =
+        await _waitForProcess(process, startMode, completers, stdin);
 
-    try {
-      process = await processManager.start(
-        commandLine,
-        workingDirectory: workingDirectory.absolute.path,
-        environment: environment,
-        runInShell: runInShell,
-        mode: startMode,
-      );
-      if (startMode == ProcessStartMode.normal ||
-          startMode == ProcessStartMode.detachedWithStdio) {
-        if (stdin != null) {
-          stdin.listen((List<int> data) {
-            process.stdin.add(data);
-          }, onDone: () async => stdinComplete.complete());
-        }
-        process.stdout.listen(
-          (List<int> event) {
-            stdoutOutput.addAll(event);
-            combinedOutput.addAll(event);
-            if (printOutput!) {
-              stdout.add(event);
-            }
-          },
-          onDone: () async => stdoutComplete.complete(),
-        );
-        process.stderr.listen(
-          (List<int> event) {
-            stderrOutput.addAll(event);
-            combinedOutput.addAll(event);
-            if (printOutput!) {
-              stderr.add(event);
-            }
-          },
-          onDone: () async => stderrComplete.complete(),
-        );
-      } else {
-        // For "detached", we can't wait for anything to complete.
-        stdinComplete.complete();
-        stdoutComplete.complete();
-        stderrComplete.complete();
-      }
-    } on ProcessException catch (e) {
-      final message =
-          'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
-          'failed with:\n$e';
-      throw ProcessRunnerException(message);
-      // ignore: avoid_catching_errors
-    } on ArgumentError catch (e) {
-      final message =
-          'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
-          'failed with:\n$e';
-      throw ProcessRunnerException(message);
-    }
-
-    final exitCode = await allComplete();
     if (exitCode != 0 && !failOk) {
       final message =
           'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
@@ -319,5 +264,104 @@ class ProcessRunner {
       pid: process.pid,
       decoder: decoder,
     );
+  }
+
+  Future<Process> _startProcess(
+    List<String> commandLine,
+    Directory workingDirectory,
+    bool runInShell,
+    ProcessStartMode startMode,
+  ) async {
+    try {
+      return await processManager.start(
+        commandLine,
+        workingDirectory: workingDirectory.absolute.path,
+        environment: environment,
+        runInShell: runInShell,
+        mode: startMode,
+      );
+    } on ProcessException catch (e) {
+      final message =
+          'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
+          'failed with:\n$e';
+      throw ProcessRunnerException(message);
+      // ignore: avoid_catching_errors
+    } on ArgumentError catch (e) {
+      final message =
+          'Running "${commandLine.join(' ')}" in ${workingDirectory.path} '
+          'failed with:\n$e';
+      throw ProcessRunnerException(message);
+    }
+  }
+
+  List<Completer<void>> _streamProcessOutput(
+    Process process,
+    Stream<List<int>>? stdin,
+    List<int> stdoutOutput,
+    List<int> stderrOutput,
+    List<int> combinedOutput,
+    bool printOutput,
+    ProcessStartMode startMode,
+  ) {
+    final stdoutComplete = Completer<void>();
+    final stderrComplete = Completer<void>();
+    final stdinComplete = Completer<void>();
+
+    if (startMode == ProcessStartMode.normal ||
+        startMode == ProcessStartMode.detachedWithStdio) {
+      if (stdin != null) {
+        stdin.listen((List<int> data) {
+          process.stdin.add(data);
+        }, onDone: () async => stdinComplete.complete());
+      } else {
+        stdinComplete.complete();
+      }
+      process.stdout.listen(
+        (List<int> event) {
+          stdoutOutput.addAll(event);
+          combinedOutput.addAll(event);
+          if (printOutput) {
+            stdout.add(event);
+          }
+        },
+        onDone: () async => stdoutComplete.complete(),
+      );
+      process.stderr.listen(
+        (List<int> event) {
+          stderrOutput.addAll(event);
+          combinedOutput.addAll(event);
+          if (printOutput) {
+            stderr.add(event);
+          }
+        },
+        onDone: () async => stderrComplete.complete(),
+      );
+    } else {
+      stdinComplete.complete();
+      stdoutComplete.complete();
+      stderrComplete.complete();
+    }
+    return [stdinComplete, stdoutComplete, stderrComplete];
+  }
+
+  Future<int> _waitForProcess(
+    Process process,
+    ProcessStartMode startMode,
+    List<Completer<void>> completers,
+    Stream<List<int>>? stdin,
+  ) async {
+    final stdinComplete = completers[0];
+    final stdoutComplete = completers[1];
+    final stderrComplete = completers[2];
+
+    if (stdin != null) {
+      await stdinComplete.future;
+      await process.stdin.close();
+    }
+    await stderrComplete.future;
+    await stdoutComplete.future;
+    return startMode == ProcessStartMode.normal
+        ? process.exitCode
+        : Future<int>.value(0);
   }
 }
