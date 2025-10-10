@@ -5,10 +5,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:process_runner/test/fake_process_manager.dart';
 import 'package:test/test.dart' as test_package show TypeMatcher;
 import 'package:test/test.dart' hide TypeMatcher, isInstanceOf;
-
-import 'fake_process_manager.dart';
 
 test_package.TypeMatcher<T> isInstanceOf<T>() => isA<T>();
 

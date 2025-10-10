@@ -5,9 +5,8 @@
 import 'dart:io';
 
 import 'package:process_runner/process_runner.dart';
+import 'package:process_runner/test/fake_process_manager.dart';
 import 'package:test/test.dart';
-
-import 'fake_process_manager.dart';
 
 void main() {
   FakeProcessManager fakeProcessManager = FakeProcessManager((String value) {});
