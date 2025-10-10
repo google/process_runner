@@ -5,8 +5,8 @@
 // This utility sends a bunch of jobs to a ProcessPool for processing.
 //
 // It can speed up processing of a bunch of single-threaded CPU-intensive
-// commands by a multiple of the number of processor cores you have (modulo being
-// disk/network bound, of course).
+// commands by a multiple of the number of processor cores you have (modulo
+// being disk/network bound, of course).
 //
 // You can install this command with "dart pub global activate process_runner",
 // and you can run it with "dart pub global run process_runner".

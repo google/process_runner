@@ -2,9 +2,9 @@ name: Process Package
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
   workflow_dispatch:
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: dart pub upgrade
       - name: Verify formatting
-        run: dart format --output=none --line-length=100 --set-exit-if-changed .
+        run: dart format --output=none --set-exit-if-changed .
       - name: Analyze project source
         run: dart analyze --fatal-infos
   test:

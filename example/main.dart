@@ -39,13 +39,13 @@ const String _kAppName = 'process_runner';
 // This only works for escaped spaces and things in double or single quotes.
 // This is just an example, modify to meet your own requirements.
 List<String> splitIntoArgs(String args) {
-  bool inQuote = false;
-  bool inEscape = false;
-  String quoteMatch = '';
-  final List<String> result = <String>[];
-  final List<String> currentArg = <String>[];
-  for (int i = 0; i < args.length; ++i) {
-    final String char = args[i];
+  var inQuote = false;
+  var inEscape = false;
+  var quoteMatch = '';
+  final result = <String>[];
+  final currentArg = <String>[];
+  for (var i = 0; i < args.length; ++i) {
+    final char = args[i];
     if (inEscape) {
       switch (char) {
         case 'n':
@@ -98,23 +98,6 @@ List<String> splitIntoArgs(String args) {
   return result;
 }
 
-String? findOption(String option, List<String> args) {
-  for (int i = 0; i < args.length - 1; ++i) {
-    if (args[i] == option) {
-      return args[i + 1];
-    }
-  }
-  return null;
-}
-
-Iterable<String> findAllOptions(String option, List<String> args) sync* {
-  for (int i = 0; i < args.length - 1; ++i) {
-    if (args[i] == option) {
-      yield args[i + 1];
-    }
-  }
-}
-
 // Print reports to stderr, to avoid polluting any stdout from the jobs.
 void stderrPrintReport(
   int total,
@@ -123,11 +106,12 @@ void stderrPrintReport(
   int pending,
   int failed,
 ) {
-  stderr.write(ProcessPool.defaultReportToString(total, completed, inProgress, pending, failed));
+  stderr.write(ProcessPool.defaultReportToString(
+      total, completed, inProgress, pending, failed));
 }
 
 Future<void> main(List<String> args) async {
-  final ArgParser parser = ArgParser(usageLineLength: 80);
+  final parser = ArgParser(usageLineLength: 80);
   parser.addFlag(
     _kHelpFlag,
     abbr: 'h',
@@ -154,15 +138,15 @@ Future<void> main(List<String> args) async {
     _kPrintStdoutFlag,
     defaultsTo: true,
     help: 'Prints the stdout output of the commands to stdout in the order '
-        'they complete. Will not interleave lines from separate processes. Has no '
-        'effect if --$_kQuietFlag is specified.',
+        'they complete. Will not interleave lines from separate processes. Has '
+        'no effect if --$_kQuietFlag is specified.',
   );
   parser.addFlag(
     _kPrintStderrFlag,
     defaultsTo: true,
     help: 'Prints the stderr output of the commands to stderr in the order '
-        'they complete. Will not interleave lines from separate processes. Has no '
-        'effect if --$_kQuietFlag is specified',
+        'they complete. Will not interleave lines from separate processes. Has '
+        'no effect if --$_kQuietFlag is specified',
   );
   parser.addFlag(
     _kRunInShellFlag,
@@ -173,10 +157,11 @@ Future<void> main(List<String> args) async {
   parser.addFlag(
     _kAllowFailureFlag,
     defaultsTo: false,
-    help: 'If set, allows continuing execution of the remaining commands even if '
+    help:
+        'If set, allows continuing execution of the remaining commands even if '
         'one fails to execute. If not set, ("--no-$_kAllowFailureFlag") then '
-        'process will just exit with a non-zero code at completion if there were '
-        'any jobs that failed.',
+        'process will just exit with a non-zero code at completion if there '
+        'were any jobs that failed.',
   );
   parser.addOption(
     _kJobsOption,
@@ -246,52 +231,54 @@ Future<void> main(List<String> args) async {
     return;
   }
 
-  final bool quiet = options[_kQuietFlag]! as bool;
-  final bool printStderr = !quiet && options[_kPrintStderrFlag]! as bool;
-  final bool printStdout = !quiet && options[_kPrintStdoutFlag]! as bool;
-  final bool printReport = options[_kReportFlag]! as bool;
-  final bool runInShell = options[_kRunInShellFlag]! as bool;
-  final bool failOk = options[_kAllowFailureFlag]! as bool;
+  final quiet = options[_kQuietFlag]! as bool;
+  final printStderr = !quiet && options[_kPrintStderrFlag]! as bool;
+  final printStdout = !quiet && options[_kPrintStdoutFlag]! as bool;
+  final printReport = options[_kReportFlag]! as bool;
+  final runInShell = options[_kRunInShellFlag]! as bool;
+  final failOk = options[_kAllowFailureFlag]! as bool;
 
   // Collect the commands to be run from the command file(s).
-  final List<String>? commandFiles = options[_kSourceOption] as List<String>?;
+  final commandFiles = options[_kSourceOption] as List<String>?;
   // Collect all the commands, both from input files, and from the command
   // line. The command line commands are run first (although they could all
   // potentially be executed simultaneously, depending on the number of workers,
   // and number of commands).
-  final List<List<String>> fileCommands = getCommandsFromFiles(commandFiles);
+  final fileCommands = getCommandsFromFiles(commandFiles);
 
-  final List<String> collectedCommands = <String>[
-    if (options[_kCommandOption] != null) ...options[_kCommandOption]! as List<String>,
+  final collectedCommands = <String>[
+    if (options[_kCommandOption] != null)
+      ...options[_kCommandOption]! as List<String>,
   ];
-  fileCommands
-      .forEach(collectedCommands.addAll); // Flatten the groups so they can be run in parallel.
+  fileCommands.forEach(collectedCommands
+      .addAll); // Flatten the groups so they can be run in parallel.
 
-  final List<List<String>> splitCommands =
-      collectedCommands.map<List<String>>((String command) => splitIntoArgs(command)).toList();
+  final splitCommands =
+      collectedCommands.map<List<String>>(splitIntoArgs).toList();
 
   // Collect the commands to be run from the group file(s).
-  final List<List<String>> groupCommands =
-      getCommandsFromFiles(options[_kGroupOption] as List<String>, allowStdin: false);
+  final groupCommands = getCommandsFromFiles(
+      options[_kGroupOption] as List<String>,
+      allowStdin: false);
 
   // Split each command entry into a list of strings, taking into account some
   // simple quoting and escaping.
-  final List<List<List<String>>> splitGroupCommands = groupCommands
-      .map<List<List<String>>>(
-          (List<String> group) => group.map<List<String>>(splitIntoArgs).toList())
+  final splitGroupCommands = groupCommands
+      .map<List<List<String>>>((List<String> group) =>
+          group.map<List<String>>(splitIntoArgs).toList())
       .toList();
 
   // If the numWorkers is set to null, then the ProcessPool will automatically
   // select the number of processes based on how many CPU cores the machine has.
-  final int? numWorkers = int.tryParse(options[_kJobsOption] as String? ?? '');
-  final Directory workingDirectory =
+  final numWorkers = int.tryParse(options[_kJobsOption] as String? ?? '');
+  final workingDirectory =
       Directory((options[_kWorkingDirectoryOption] as String?) ?? '.');
 
-  final ProcessPool pool = ProcessPool(
+  final pool = ProcessPool(
     numWorkers: numWorkers,
     printReport: printReport ? stderrPrintReport : null,
   );
-  final Iterable<WorkerJobGroup> groupedJobs =
+  final groupedJobs =
       splitGroupCommands.map<WorkerJobGroup>((List<List<String>> group) {
     return WorkerJobGroup(group
         .map<WorkerJob>((List<String> command) => WorkerJob(
@@ -302,14 +289,17 @@ Future<void> main(List<String> args) async {
             ))
         .toList());
   });
-  final Iterable<WorkerJob> parallelJobs =
+  final parallelJobs =
       splitCommands.map<WorkerJob>((List<String> command) => WorkerJob(
             command,
             workingDirectory: workingDirectory,
             runInShell: runInShell,
             failOk: failOk,
           ));
-  final Iterable<DependentJob> jobs = <DependentJob>[...parallelJobs, ...groupedJobs];
+  final Iterable<DependentJob> jobs = <DependentJob>[
+    ...parallelJobs,
+    ...groupedJobs
+  ];
   try {
     await for (final WorkerJob done in pool.startWorkers(jobs)) {
       if (printStdout) {
@@ -331,21 +321,23 @@ Future<void> main(List<String> args) async {
   exitCode = pool.failedJobs != 0 ? 1 : 0;
 }
 
-List<List<String>> getCommandsFromFiles(List<String>? commandFiles, {bool allowStdin = false}) {
-  final List<List<String>> fileCommands = <List<String>>[];
+List<List<String>> getCommandsFromFiles(List<String>? commandFiles,
+    {bool allowStdin = false}) {
+  final fileCommands = <List<String>>[];
   if (commandFiles != null) {
-    bool sawStdinAlready = false;
-    for (final String commandFile in commandFiles) {
+    var sawStdinAlready = false;
+    for (final commandFile in commandFiles) {
       // Read from stdin if the --file option is set to '-'.
       if (allowStdin && commandFile == '-') {
         if (sawStdinAlready) {
-          stderr.writeln('ERROR: The stdin can only be specified once with "--$_kSourceOption -"');
+          stderr.writeln('ERROR: The stdin can only be specified once with '
+              '"--$_kSourceOption -"');
           exitCode = 1;
           return <List<String>>[];
         }
         sawStdinAlready = true;
-        String? line = stdin.readLineSync();
-        final List<String> commands = <String>[];
+        var line = stdin.readLineSync();
+        final commands = <String>[];
         while (line != null) {
           commands.add(line);
           line = stdin.readLineSync();
@@ -353,7 +345,7 @@ List<List<String>> getCommandsFromFiles(List<String>? commandFiles, {bool allowS
         fileCommands.add(commands);
       } else {
         // Read the commands from a file.
-        final File cmdFile = File(commandFile);
+        final cmdFile = File(commandFile);
         if (!cmdFile.existsSync()) {
           print('''Command file "$commandFile" doesn't exist.''');
           exit(1);
