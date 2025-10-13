@@ -1,5 +1,10 @@
 # Change Log for `process_runner`
 
+## 4.2.3
+
+- Propagate `includeParentEnvironment` to process manager (fixes
+  [#36](https://github.com/google/process_runner/issues/36))
+
 ## 4.2.2
 
 - Refactoring the main `run` method in `ProcessRunner` into smaller, more

@@ -119,6 +119,28 @@ void main() {
       fakeProcessManager.verifyCalls(calls.keys);
     });
 
+    test('runProcess passes includeParentEnvironment to manager', () async {
+      processRunner = ProcessRunner(
+        processManager: fakeProcessManager,
+        defaultWorkingDirectory: Directory(testPath),
+        includeParentEnvironment: false,
+      );
+      final calls = <FakeInvocationRecord, List<ProcessResult>>{
+        FakeInvocationRecord(
+          <String>['command', 'arg1', 'arg2'],
+          workingDirectory: testPath,
+          includeParentEnvironment: false,
+        ): <ProcessResult>[
+          ProcessResult(0, 0, 'output1', ''),
+        ],
+      };
+      fakeProcessManager.fakeResults = calls;
+      await processRunner.runProcess(
+        <String>['command', 'arg1', 'arg2'],
+      );
+      fakeProcessManager.verifyCalls(calls.keys);
+    });
+
     test('runProcess throws when process manager throws', () async {
       fakeProcessManager.commandsThrow = true;
       final calls = <FakeInvocationRecord, List<ProcessResult>>{
