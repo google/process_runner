@@ -1,5 +1,10 @@
 # Change Log for `process_runner`
 
+## 4.2.4
+
+- Downgrades the test dependency to 1.26.2 to make it compatible with Flutter
+  stable (3.35.7).
+
 ## 4.2.3
 
 - Propagate `includeParentEnvironment` to process manager (fixes
